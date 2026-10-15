@@ -1,0 +1,9 @@
+/* General stylesheet hook: affects all diagram text, whether role-tagged or not. */
+.figuro-diagram svg text {
+  fill: #264653 !important;
+}
+
+/* Semantic stylesheet hook: the adapter adds this from customData.figuro.role. */
+.figuro-diagram [data-figuro-role="service"] path {
+  stroke: #0077b6 !important;
+}

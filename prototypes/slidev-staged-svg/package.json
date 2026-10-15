@@ -1,0 +1,17 @@
+{
+  "name": "figuro-slidev-staged-svg-prototype",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "slidev --open",
+    "build": "slidev build"
+  },
+  "dependencies": {
+    "@excalidraw/excalidraw": "0.18.1"
+  },
+  "devDependencies": {
+    "@slidev/cli": "53.0.0",
+    "@slidev/theme-default": "0.25.0"
+  }
+}
