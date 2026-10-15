@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+    <title>Figuro</title>
+    <style>
+      html,
+      body,
+      #root {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        overflow: hidden;
+      }
+    </style>
+    <script>
+      // Resolved against the document URL so Excalidraw never reaches for its
+      // CDN fallback. See vite.config.ts.
+      window.EXCALIDRAW_ASSET_PATH = new URL(
+        "./excalidraw-assets/",
+        location.href,
+      ).href;
+      // Recorded in the `source` field of every saved file. Without this,
+      // Excalidraw falls back to the page origin and leaks Figuro's internal
+      // URL scheme into the document.
+      window.EXCALIDRAW_EXPORT_SOURCE = "figuro";
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="./src/main.tsx"></script>
+  </body>
+</html>

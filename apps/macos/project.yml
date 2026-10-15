@@ -1,0 +1,64 @@
+name: Figuro
+options:
+  bundleIdPrefix: dev.amolenk
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    # Local development build: ad-hoc signed, no Apple Developer account.
+    CODE_SIGN_IDENTITY: "-"
+    CODE_SIGN_STYLE: Manual
+    DEVELOPMENT_TEAM: ""
+    ENABLE_HARDENED_RUNTIME: NO
+
+targets:
+  Figuro:
+    type: application
+    platform: macOS
+    sources:
+      - path: Sources
+      # Folder reference: the built web assets keep their directory structure
+      # inside the bundle so relative URLs resolve.
+      - path: Resources/EditorHost
+        type: folder
+        buildPhase: resources
+        optional: true
+    info:
+      path: Info.plist
+      properties:
+        CFBundleName: Figuro
+        CFBundleDisplayName: Figuro
+        CFBundlePackageType: APPL
+        NSHumanReadableCopyright: ""
+        NSPrincipalClass: NSApplication
+        LSMinimumSystemVersion: "14.0"
+        NSHighResolutionCapable: true
+        CFBundleDocumentTypes:
+          - CFBundleTypeName: Excalidraw Drawing
+            CFBundleTypeRole: Editor
+            LSHandlerRank: Owner
+            LSItemContentTypes:
+              - com.excalidraw.excalidraw
+            NSDocumentClass: $(PRODUCT_MODULE_NAME).Document
+        UTImportedTypeDeclarations:
+          - UTTypeIdentifier: com.excalidraw.excalidraw
+            UTTypeDescription: Excalidraw Drawing
+            UTTypeConformsTo:
+              - public.json
+            UTTypeTagSpecification:
+              public.filename-extension:
+                - excalidraw
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.amolenk.Figuro
+        INFOPLIST_KEY_NSMainStoryboardFile: ""
+        COMBINE_HIDPI_IMAGES: YES
+    preBuildScripts:
+      - name: Build editor host
+        script: "\"$SRCROOT/Scripts/build-editor-host.sh\""
+        basedOnDependencyAnalysis: false

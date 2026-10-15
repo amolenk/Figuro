@@ -1,0 +1,12 @@
+{
+  "name": "figuro",
+  "private": true,
+  "version": "0.1.0",
+  "pnpm": {
+    "onlyBuiltDependencies": ["esbuild"]
+  },
+  "scripts": {
+    "build": "pnpm --filter @figuro/editor-host build",
+    "dev": "pnpm --filter @figuro/editor-host dev"
+  }
+}
