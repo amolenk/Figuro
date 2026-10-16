@@ -343,30 +343,32 @@ export default function App() {
     [api, beginKeyboardSceneInteraction],
   );
 
-  const trackCanvasEditIntent = useCallback(
-    (target: EventTarget | null) => {
+  const handleCanvasPaste = useCallback(
+    (event: ReactClipboardEvent<HTMLDivElement>) => {
       if (
-        target instanceof HTMLInputElement ||
-        target instanceof HTMLSelectElement
+        event.target instanceof HTMLInputElement ||
+        event.target instanceof HTMLSelectElement ||
+        event.clipboardData.types.length === 0
       ) {
         return;
       }
-      beginKeyboardSceneInteraction();
-      window.setTimeout(() => {
-        if (sceneInteraction.current?.kind === "keyboard") finishSceneInteraction();
-      }, 0);
+      noteUserEdit();
     },
-    [beginKeyboardSceneInteraction, finishSceneInteraction],
-  );
-
-  const handleCanvasPaste = useCallback(
-    (event: ReactClipboardEvent<HTMLDivElement>) => trackCanvasEditIntent(event.target),
-    [trackCanvasEditIntent],
+    [noteUserEdit],
   );
 
   const handleCanvasDrop = useCallback(
-    (event: ReactDragEvent<HTMLDivElement>) => trackCanvasEditIntent(event.target),
-    [trackCanvasEditIntent],
+    (event: ReactDragEvent<HTMLDivElement>) => {
+      if (
+        event.target instanceof HTMLInputElement ||
+        event.target instanceof HTMLSelectElement ||
+        (event.dataTransfer.files.length === 0 && event.dataTransfer.types.length === 0)
+      ) {
+        return;
+      }
+      noteUserEdit();
+    },
+    [noteUserEdit],
   );
 
   const releaseCanvasKey = useCallback((event: KeyboardEvent<HTMLDivElement>) => {
