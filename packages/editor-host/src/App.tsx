@@ -11,6 +11,7 @@ import type { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import {
   type KeyboardEvent,
+  type ClipboardEvent as ReactClipboardEvent,
   type PointerEvent as ReactPointerEvent,
   useCallback,
   useEffect,
@@ -48,6 +49,7 @@ const CHURN_KEYS = new Set(["version", "versionNonce", "updated"]);
 
 type SceneSignature = string;
 type SceneInteraction = {
+  kind: "pointer" | "keyboard";
   signature: SceneSignature;
   activeTool: string;
   canCreateSceneElement: boolean;
@@ -92,6 +94,13 @@ function withRevealStep(
   const existing = inspectFiguroMetadata(customData.figuro);
   if (existing.kind === "opaque") return null;
   if (step === null && existing.kind === "unannotated") return element;
+  if (
+    existing.kind === "v1" &&
+    ((step === null && !("step" in existing.metadata)) ||
+      (step !== null && existing.metadata.step === step))
+  ) {
+    return element;
+  }
 
   const metadata: FiguroMetadataV1 =
     existing.kind === "v1" ? { ...existing.metadata } : { v: 1 };
@@ -237,6 +246,7 @@ export default function App() {
     const activeTool = api.getAppState().activeTool.type;
     const target = event.target;
     sceneInteraction.current = {
+      kind: "pointer",
       signature: signature(api),
       activeTool,
       canCreateSceneElement: !["selection", "hand", "laser", "custom"].includes(activeTool),
@@ -244,6 +254,23 @@ export default function App() {
         target instanceof Element &&
         target.closest("button, input, select, [role='button']") !== null,
       isPanGesture: event.button !== 0 || spacebarHeld.current,
+      hitElement: false,
+      dragged: false,
+    };
+  }, [api]);
+
+  const beginKeyboardSceneInteraction = useCallback(() => {
+    userHasInteracted.current = true;
+    if (!api || sceneInteraction.current?.kind === "keyboard") return;
+    if (sceneInteraction.current !== null) return;
+
+    sceneInteraction.current = {
+      kind: "keyboard",
+      signature: signature(api),
+      activeTool: api.getAppState().activeTool.type,
+      canCreateSceneElement: false,
+      isEditorControl: false,
+      isPanGesture: false,
       hitElement: false,
       dragged: false,
     };
@@ -262,6 +289,7 @@ export default function App() {
       activeTool !== before.activeTool ||
       before.isPanGesture;
     const couldEditScene =
+      before.kind === "keyboard" ||
       before.canCreateSceneElement ||
       before.isEditorControl ||
       (before.activeTool === "selection" && before.hitElement && before.dragged);
@@ -307,9 +335,24 @@ export default function App() {
         (event.metaKey || event.ctrlKey) &&
         (key === "v" || (hasSelection && ["x", "y", "z", "d", "g"].includes(key)));
 
-      if (editsText || editsSelection || editsWithShortcut) noteUserEdit();
+      if (editsText || editsSelection || editsWithShortcut) {
+        beginKeyboardSceneInteraction();
+      }
     },
-    [api, noteUserEdit],
+    [api, beginKeyboardSceneInteraction],
+  );
+
+  const handleCanvasPaste = useCallback(
+    (event: ReactClipboardEvent<HTMLDivElement>) => {
+      if (
+        event.target instanceof HTMLInputElement ||
+        event.target instanceof HTMLSelectElement
+      ) {
+        return;
+      }
+      noteUserEdit();
+    },
+    [noteUserEdit],
   );
 
   const releaseCanvasKey = useCallback((event: KeyboardEvent<HTMLDivElement>) => {
@@ -319,24 +362,39 @@ export default function App() {
   useEffect(() => {
     const finishAfterPointerEvents = () => {
       // Excalidraw's click handlers may apply a scene update after pointerup.
-      window.setTimeout(finishSceneInteraction, 0);
+      if (sceneInteraction.current?.kind !== "pointer") return;
+      window.setTimeout(() => {
+        if (sceneInteraction.current?.kind === "pointer") finishSceneInteraction();
+      }, 0);
+    };
+    const finishAfterKeyboardEvent = () => {
+      if (sceneInteraction.current?.kind !== "keyboard") return;
+      window.setTimeout(() => {
+        if (sceneInteraction.current?.kind === "keyboard") finishSceneInteraction();
+      }, 0);
     };
     window.addEventListener("pointerup", finishAfterPointerEvents);
     window.addEventListener("pointercancel", finishAfterPointerEvents);
+    window.addEventListener("keyup", finishAfterKeyboardEvent);
     return () => {
       window.removeEventListener("pointerup", finishAfterPointerEvents);
       window.removeEventListener("pointercancel", finishAfterPointerEvents);
+      window.removeEventListener("keyup", finishAfterKeyboardEvent);
     };
   }, [finishSceneInteraction]);
 
   const applyRevealStep = useCallback(
     (step: number | null) => {
       if (!api || !selectedElement) return;
-      noteUserEdit();
+      let changed = false;
       const elements = api.getSceneElementsIncludingDeleted().map((element) => {
         if (element.id !== selectedElement.id) return element;
-        return withRevealStep(element, step) ?? element;
+        const updated = withRevealStep(element, step);
+        if (updated && updated !== element) changed = true;
+        return updated ?? element;
       });
+      if (!changed) return;
+      noteUserEdit();
       api.updateScene({ elements, captureUpdate: "IMMEDIATELY" });
     },
     [api, noteUserEdit, selectedElement],
@@ -452,7 +510,7 @@ export default function App() {
         onPointerDownCapture={beginSceneInteraction}
         onKeyDownCapture={noteCanvasKeyEdit}
         onKeyUpCapture={releaseCanvasKey}
-        onPasteCapture={noteUserEdit}
+        onPasteCapture={handleCanvasPaste}
         onDropCapture={noteUserEdit}
         onWheelCapture={() => {
           userHasInteracted.current = true;
