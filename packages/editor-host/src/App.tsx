@@ -12,6 +12,7 @@ import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import {
   type KeyboardEvent,
   type ClipboardEvent as ReactClipboardEvent,
+  type DragEvent as ReactDragEvent,
   type PointerEvent as ReactPointerEvent,
   useCallback,
   useEffect,
@@ -342,17 +343,30 @@ export default function App() {
     [api, beginKeyboardSceneInteraction],
   );
 
-  const handleCanvasPaste = useCallback(
-    (event: ReactClipboardEvent<HTMLDivElement>) => {
+  const trackCanvasEditIntent = useCallback(
+    (target: EventTarget | null) => {
       if (
-        event.target instanceof HTMLInputElement ||
-        event.target instanceof HTMLSelectElement
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLSelectElement
       ) {
         return;
       }
-      noteUserEdit();
+      beginKeyboardSceneInteraction();
+      window.setTimeout(() => {
+        if (sceneInteraction.current?.kind === "keyboard") finishSceneInteraction();
+      }, 0);
     },
-    [noteUserEdit],
+    [beginKeyboardSceneInteraction, finishSceneInteraction],
+  );
+
+  const handleCanvasPaste = useCallback(
+    (event: ReactClipboardEvent<HTMLDivElement>) => trackCanvasEditIntent(event.target),
+    [trackCanvasEditIntent],
+  );
+
+  const handleCanvasDrop = useCallback(
+    (event: ReactDragEvent<HTMLDivElement>) => trackCanvasEditIntent(event.target),
+    [trackCanvasEditIntent],
   );
 
   const releaseCanvasKey = useCallback((event: KeyboardEvent<HTMLDivElement>) => {
@@ -511,7 +525,7 @@ export default function App() {
         onKeyDownCapture={noteCanvasKeyEdit}
         onKeyUpCapture={releaseCanvasKey}
         onPasteCapture={handleCanvasPaste}
-        onDropCapture={noteUserEdit}
+        onDropCapture={handleCanvasDrop}
         onWheelCapture={() => {
           userHasInteracted.current = true;
         }}
