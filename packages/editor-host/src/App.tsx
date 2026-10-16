@@ -5,7 +5,7 @@ import {
   restore,
   serializeAsJSON,
 } from "@excalidraw/excalidraw";
-import { isFiguroMetadataV1, isNonNegativeInteger } from "@figuro/schema";
+import { inspectFiguroMetadata, isNonNegativeInteger } from "@figuro/schema";
 import type { FiguroMetadataV1 } from "@figuro/schema";
 import type { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
@@ -58,36 +58,30 @@ type SceneInteraction = {
 };
 
 function isEditableFiguroMetadata(element: ExcalidrawElement): boolean {
-  const metadata = element.customData?.figuro;
-  return metadata === undefined || isFiguroMetadataV1(metadata);
+  return inspectFiguroMetadata(element.customData?.figuro).kind !== "opaque";
 }
 
 function revealStepOf(element: ExcalidrawElement | null): number | null {
   if (!element) return null;
-  const metadata = element.customData?.figuro;
-  if (
-    !isFiguroMetadataV1(metadata) ||
-    !isNonNegativeInteger(metadata.step)
-  ) {
-    return null;
-  }
-  return metadata.step;
+  const state = inspectFiguroMetadata(element.customData?.figuro);
+  if (state.kind !== "v1" || !isNonNegativeInteger(state.metadata.step)) return null;
+  return state.metadata.step;
 }
 
 function revealStepLabel(element: ExcalidrawElement | null): string {
   if (!element) return "";
-  const metadata = element.customData?.figuro;
-  if (metadata === undefined) return "No step · visible initially";
-  if (!isFiguroMetadataV1(metadata)) return "Unsupported Figuro metadata";
-  if (!("step" in metadata)) return "No step · visible initially";
-  const step = revealStepOf(element);
+  const state = inspectFiguroMetadata(element.customData?.figuro);
+  if (state.kind === "unannotated") return "No step · visible initially";
+  if (state.kind === "opaque") return "Unsupported Figuro metadata";
+  if (!("step" in state.metadata)) return "No step · visible initially";
+  const step = isNonNegativeInteger(state.metadata.step) ? state.metadata.step : null;
   return step === null ? "Invalid reveal step" : `Step ${step}`;
 }
 
 function hasRevealStep(element: ExcalidrawElement | null): boolean {
   if (!element) return false;
-  const metadata = element.customData?.figuro;
-  return isFiguroMetadataV1(metadata) && "step" in metadata;
+  const state = inspectFiguroMetadata(element.customData?.figuro);
+  return state.kind === "v1" && "step" in state.metadata;
 }
 
 function withRevealStep(
@@ -95,13 +89,12 @@ function withRevealStep(
   step: number | null,
 ): ExcalidrawElement | null {
   const customData: Record<string, unknown> = { ...element.customData };
-  const existing = customData.figuro;
-  if (existing !== undefined && !isFiguroMetadataV1(existing)) return null;
-  if (step === null && existing === undefined) return element;
+  const existing = inspectFiguroMetadata(customData.figuro);
+  if (existing.kind === "opaque") return null;
+  if (step === null && existing.kind === "unannotated") return element;
 
-  const metadata: FiguroMetadataV1 = isFiguroMetadataV1(existing)
-    ? { ...existing }
-    : { v: 1 };
+  const metadata: FiguroMetadataV1 =
+    existing.kind === "v1" ? { ...existing.metadata } : { v: 1 };
   if (step === null) delete metadata.step;
   else metadata.step = step;
 
@@ -312,7 +305,7 @@ export default function App() {
         ].includes(key);
       const editsWithShortcut =
         (event.metaKey || event.ctrlKey) &&
-        (key === "v" || (hasSelection && ["x", "y", "z", "d"].includes(key)));
+        (key === "v" || (hasSelection && ["x", "y", "z", "d", "g"].includes(key)));
 
       if (editsText || editsSelection || editsWithShortcut) noteUserEdit();
     },

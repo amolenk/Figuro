@@ -6,6 +6,11 @@ export type FiguroMetadataV1 = {
   [field: string]: unknown;
 };
 
+export type FiguroMetadataState =
+  | { kind: "unannotated" }
+  | { kind: "v1"; metadata: FiguroMetadataV1 }
+  | { kind: "opaque" };
+
 /** Whether an object declares v1; validate known field values separately. */
 export function isFiguroMetadataV1(value: unknown): value is FiguroMetadataV1 {
   return (
@@ -15,6 +20,13 @@ export function isFiguroMetadataV1(value: unknown): value is FiguroMetadataV1 {
     "v" in value &&
     value.v === 1
   );
+}
+
+/** Classifies metadata without interpreting unsupported or malformed values. */
+export function inspectFiguroMetadata(value: unknown): FiguroMetadataState {
+  if (value === undefined) return { kind: "unannotated" };
+  if (isFiguroMetadataV1(value)) return { kind: "v1", metadata: value };
+  return { kind: "opaque" };
 }
 
 /** Whether a number is a representable non-negative reveal step. */
