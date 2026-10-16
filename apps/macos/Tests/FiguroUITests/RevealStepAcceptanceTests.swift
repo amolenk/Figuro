@@ -28,15 +28,15 @@ final class RevealStepAcceptanceTests: XCTestCase {
         app = XCUIApplication()
         app.launch()
         openDocument()
-
+        selectOnlyElement()
+        switchToolsAndPan()
         XCTAssertTrue(staysUnchangedForAutosaveWindow(originalContents))
 
-        selectOnlyElement()
         let stepField = revealStepField
         XCTAssertTrue(stepField.waitForExistence(timeout: 10))
         stepField.click()
         stepField.typeText("3")
-        app.webViews.firstMatch.buttons["Set step"].click()
+        editor.buttons["Set step"].click()
 
         saveDocument()
         XCTAssertTrue(waitForSavedStep(3))
@@ -47,14 +47,23 @@ final class RevealStepAcceptanceTests: XCTestCase {
         selectOnlyElement()
         XCTAssertEqual(revealStepField.value as? String, "3")
 
-        app.webViews.firstMatch.buttons["Clear step"].click()
+        editor.buttons["Clear step"].click()
         saveDocument()
         XCTAssertTrue(waitForSavedStep(nil))
         assertUnrelatedAndUnknownMetadataArePreserved(step: nil)
     }
 
     private var revealStepField: XCUIElement {
-        app.webViews.firstMatch.textFields["Reveal step"]
+        editor.textFields["Reveal step"]
+    }
+
+    private var editor: XCUIElement {
+        documentWindow.webViews.firstMatch
+    }
+
+    private var documentWindow: XCUIElement {
+        let fileName = documentURL.deletingPathExtension().lastPathComponent
+        return app.windows.matching(NSPredicate(format: "label CONTAINS %@", fileName)).firstMatch
     }
 
     private func openDocument() {
@@ -72,18 +81,29 @@ final class RevealStepAcceptanceTests: XCTestCase {
         pathField.typeText(documentURL.path)
         goToSheet.buttons["Go"].click()
         openPanel.buttons["Open"].click()
-        XCTAssertTrue(app.webViews.firstMatch.waitForExistence(timeout: 10))
+        XCTAssertTrue(editor.waitForExistence(timeout: 10))
+        XCTAssertTrue(
+            editor.staticTexts["Presentation"].waitForExistence(timeout: 10))
     }
 
     private func selectOnlyElement() {
-        let editor = app.webViews.firstMatch
         XCTAssertTrue(editor.waitForExistence(timeout: 10))
         let inspectorWidth = min(max(editor.frame.width * 0.23, 240), 320)
         let canvasCenter = (editor.frame.width - inspectorWidth) / 2
         editor.coordinate(
             withNormalizedOffset: CGVector(dx: canvasCenter / editor.frame.width, dy: 0.5)
         ).tap()
-        XCTAssertTrue(app.webViews.firstMatch.buttons["Set step"].waitForExistence(timeout: 5))
+        XCTAssertTrue(editor.buttons["Set step"].waitForExistence(timeout: 5))
+    }
+
+    private func switchToolsAndPan() {
+        editor.typeKey("h", modifierFlags: [])
+
+        let start = editor.coordinate(withNormalizedOffset: CGVector(dx: 0.7, dy: 0.8))
+        let end = editor.coordinate(withNormalizedOffset: CGVector(dx: 0.74, dy: 0.8))
+        start.press(forDuration: 0.1, thenDragTo: end)
+
+        editor.typeKey("v", modifierFlags: [])
     }
 
     private func saveDocument() {

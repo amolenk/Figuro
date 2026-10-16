@@ -87,7 +87,7 @@ No presentation metadata is required or created.
 
 ### Presentation
 
-Exposes presentation metadata for the current selection through a native SwiftUI inspector beside the web view.
+Exposes presentation metadata for the current selection through a persistent inspector beside the drawing in the editor host.
 Excalidraw's own UI is never modified, which keeps it upgradeable.
 
 The inspector edits two things:

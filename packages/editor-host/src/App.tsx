@@ -7,7 +7,13 @@ import {
 } from "@excalidraw/excalidraw";
 import type { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  type KeyboardEvent,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
 import { hasHost, postToHost } from "./bridge";
 import "./App.css";
@@ -45,17 +51,20 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+function isFiguroMetadataV1(value: unknown): value is FiguroMetadata {
+  return isRecord(value) && value.v === 1;
+}
+
 function isEditableFiguroMetadata(element: ExcalidrawElement): boolean {
   const metadata = element.customData?.figuro;
-  return metadata === undefined || (isRecord(metadata) && metadata.v === 1);
+  return metadata === undefined || isFiguroMetadataV1(metadata);
 }
 
 function revealStepOf(element: ExcalidrawElement | null): number | null {
   if (!element) return null;
   const metadata = element.customData?.figuro;
   if (
-    !isRecord(metadata) ||
-    metadata.v !== 1 ||
+    !isFiguroMetadataV1(metadata) ||
     typeof metadata.step !== "number" ||
     !Number.isSafeInteger(metadata.step) ||
     metadata.step < 0
@@ -69,7 +78,7 @@ function revealStepLabel(element: ExcalidrawElement | null): string {
   if (!element) return "";
   const metadata = element.customData?.figuro;
   if (metadata === undefined) return "No step · visible initially";
-  if (!isRecord(metadata) || metadata.v !== 1) return "Unsupported Figuro metadata";
+  if (!isFiguroMetadataV1(metadata)) return "Unsupported Figuro metadata";
   if (!("step" in metadata)) return "No step · visible initially";
   const step = revealStepOf(element);
   return step === null ? "Invalid reveal step" : `Step ${step}`;
@@ -78,7 +87,7 @@ function revealStepLabel(element: ExcalidrawElement | null): string {
 function hasRevealStep(element: ExcalidrawElement | null): boolean {
   if (!element) return false;
   const metadata = element.customData?.figuro;
-  return isRecord(metadata) && metadata.v === 1 && "step" in metadata;
+  return isFiguroMetadataV1(metadata) && "step" in metadata;
 }
 
 function withRevealStep(
@@ -87,12 +96,10 @@ function withRevealStep(
 ): ExcalidrawElement | null {
   const customData: Record<string, unknown> = { ...element.customData };
   const existing = customData.figuro;
-  if (existing !== undefined && (!isRecord(existing) || existing.v !== 1)) return null;
+  if (existing !== undefined && !isFiguroMetadataV1(existing)) return null;
   if (step === null && existing === undefined) return element;
 
-  const metadata: FiguroMetadata = isRecord(existing)
-    ? { ...existing, v: 1 }
-    : { v: 1 };
+  const metadata: FiguroMetadata = isFiguroMetadataV1(existing) ? { ...existing } : { v: 1 };
   if (step === null) delete metadata.step;
   else metadata.step = step;
 
@@ -153,17 +160,21 @@ export default function App() {
   const [selectedElement, setSelectedElement] = useState<ExcalidrawElement | null>(null);
   const [selectionCount, setSelectionCount] = useState(0);
   const [stepDraft, setStepDraft] = useState("");
+  const selectedElementId = useRef<string | null>(null);
+  const selectedRevealStep = useRef<number | null>(null);
   const lastSignature = useRef<SceneSignature | null>(null);
+  const sceneInteractionSignature = useRef<SceneSignature | null>(null);
   /**
-   * Whether the user has touched the canvas since the document was loaded.
+   * Whether an actual document edit has occurred since the document was loaded.
    *
    * Excalidraw normalises a scene when it restores it - filling in defaults,
    * assigning fractional indices, recomputing text metrics as fonts arrive -
-   * and each of those bumps element versions. Those are not edits. Gating on
-   * real user input, rather than on a settling timeout, is what guarantees
-   * that opening a file and looking at it never rewrites it on disk.
+   * and each of those can change fields that belong to the saved scene. Those
+   * normalisations are rebased until an actual scene edit occurs; view-only
+   * actions never release the guard.
    */
   const userHasEdited = useRef(false);
+  const userHasInteracted = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const flushTimer = useRef<number | null>(null);
 
@@ -191,17 +202,27 @@ export default function App() {
       .getSceneElements()
       .filter((element) => selectedIds[element.id]);
     const singleSelection = selectedElements.length === 1 ? selectedElements[0] : null;
+    const singleSelectionId = singleSelection?.id ?? null;
+    const singleSelectionStep = revealStepOf(singleSelection ?? null);
     setSelectionCount(selectedElements.length);
     setSelectedElement(singleSelection ?? null);
-    setStepDraft(revealStepOf(singleSelection ?? null)?.toString() ?? "");
+    if (
+      singleSelectionId !== selectedElementId.current ||
+      singleSelectionStep !== selectedRevealStep.current
+    ) {
+      selectedElementId.current = singleSelectionId;
+      selectedRevealStep.current = singleSelectionStep;
+      setStepDraft(singleSelectionStep?.toString() ?? "");
+    }
 
     const current = signature(api);
-    // Until the user edits something, keep rebasing the baseline. Excalidraw
-    // normalises a restored scene over several frames, and none of that is an
-    // edit; folding it into the baseline means the first click or tool
-    // shortcut cannot flush it to disk.
+    // Rebase through restore normalisation until a real scene edit occurs.
+    // While a pointer interaction is in progress, hold the starting signature
+    // so its completion can distinguish an edit from a view-only action.
     if (!userHasEdited.current) {
-      lastSignature.current = current;
+      if (sceneInteractionSignature.current === null) {
+        lastSignature.current = current;
+      }
       return;
     }
     if (current === lastSignature.current) return;
@@ -211,18 +232,87 @@ export default function App() {
 
   const noteUserEdit = useCallback(() => {
     userHasEdited.current = true;
+    userHasInteracted.current = true;
   }, []);
+
+  const beginSceneInteraction = useCallback(() => {
+    userHasInteracted.current = true;
+    if (!api) return;
+    sceneInteractionSignature.current = signature(api);
+  }, [api]);
+
+  const finishSceneInteraction = useCallback(() => {
+    if (!api) return;
+    const before = sceneInteractionSignature.current;
+    sceneInteractionSignature.current = null;
+    if (before === null) return;
+
+    const current = signature(api);
+    if (!userHasEdited.current && current !== before) {
+      userHasEdited.current = true;
+      lastSignature.current = current;
+      scheduleFlush();
+    } else if (!userHasEdited.current) {
+      lastSignature.current = current;
+    }
+  }, [api, scheduleFlush]);
+
+  const noteCanvasKeyEdit = useCallback(
+    (event: KeyboardEvent<HTMLDivElement>) => {
+      userHasInteracted.current = true;
+      const key = event.key.toLowerCase();
+      const isTextEditor =
+        event.target instanceof HTMLElement &&
+        (event.target.isContentEditable || event.target instanceof HTMLTextAreaElement);
+      const hasSelection =
+        api !== null && Object.values(api.getAppState().selectedElementIds).some(Boolean);
+      const editsText =
+        isTextEditor &&
+        (key.length === 1 || ["enter", "backspace", "delete"].includes(key));
+      const editsSelection =
+        !isTextEditor &&
+        hasSelection &&
+        [
+          "backspace",
+          "delete",
+          "arrowup",
+          "arrowdown",
+          "arrowleft",
+          "arrowright",
+        ].includes(key);
+      const editsWithShortcut =
+        (event.metaKey || event.ctrlKey) &&
+        (key === "v" || (hasSelection && ["x", "y", "z", "d"].includes(key)));
+
+      if (editsText || editsSelection || editsWithShortcut) noteUserEdit();
+    },
+    [api, noteUserEdit],
+  );
+
+  useEffect(() => {
+    const finishAfterPointerEvents = () => {
+      // Excalidraw's click handlers may apply a scene update after pointerup.
+      window.setTimeout(finishSceneInteraction, 0);
+    };
+    window.addEventListener("pointerup", finishAfterPointerEvents);
+    window.addEventListener("pointercancel", finishAfterPointerEvents);
+    return () => {
+      window.removeEventListener("pointerup", finishAfterPointerEvents);
+      window.removeEventListener("pointercancel", finishAfterPointerEvents);
+    };
+  }, [finishSceneInteraction]);
 
   const applyRevealStep = useCallback(
     (step: number | null) => {
       if (!api || !selectedElement) return;
+      noteUserEdit();
       const elements = api.getSceneElementsIncludingDeleted().map((element) => {
         if (element.id !== selectedElement.id) return element;
         return withRevealStep(element, step) ?? element;
       });
       api.updateScene({ elements, captureUpdate: "IMMEDIATELY" });
     },
-    [api, selectedElement],
+    [api, noteUserEdit, selectedElement],
   );
 
   /**
@@ -230,11 +320,12 @@ export default function App() {
    *
    * The window is still settling to its final size when a document loads, so
    * fitting once would frame the scene against the wrong viewport and leave it
-   * tucked under the toolbar. Re-fitting on resize, and only before the first
-   * edit, gets it right without ever fighting the user's own panning.
+   * tucked under the toolbar. Re-fitting on resize, and only before the user
+   * takes over the view or edits the scene, gets it right without fighting the
+   * user's own panning.
    */
   const fitToViewport = useCallback(() => {
-    if (!api || userHasEdited.current) return;
+    if (!api || userHasInteracted.current) return;
     const elements = api.getSceneElements();
     if (elements.length === 0) return;
     api.scrollToContent(elements, { fitToContent: true, animate: false });
@@ -265,7 +356,9 @@ export default function App() {
       api.addFiles(Object.values(scene.files ?? {}));
       api.history.clear();
       userHasEdited.current = false;
+      userHasInteracted.current = false;
       lastSignature.current = null;
+      sceneInteractionSignature.current = null;
       // The scene is committed after this turn of the event loop.
       requestAnimationFrame(() => fitToViewport());
     };
@@ -319,12 +412,17 @@ export default function App() {
     <div
       ref={containerRef}
       className="figuro-workspace"
-      onPointerDownCapture={noteUserEdit}
-      onKeyDownCapture={noteUserEdit}
-      onPasteCapture={noteUserEdit}
-      onDropCapture={noteUserEdit}
     >
-      <div className="figuro-canvas">
+      <div
+        className="figuro-canvas"
+        onPointerDownCapture={beginSceneInteraction}
+        onKeyDownCapture={noteCanvasKeyEdit}
+        onPasteCapture={noteUserEdit}
+        onDropCapture={noteUserEdit}
+        onWheelCapture={() => {
+          userHasInteracted.current = true;
+        }}
+      >
         <Excalidraw
           excalidrawAPI={setApi}
           onChange={handleChange}
