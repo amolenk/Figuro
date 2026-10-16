@@ -400,6 +400,13 @@ export default function App() {
     };
   }, [api, fitToViewport]);
 
+  const parsedStepDraft = Number(stepDraft);
+  const canSetStep =
+    selectedElement !== null &&
+    isEditableFiguroMetadata(selectedElement) &&
+    stepDraft.trim() !== "" &&
+    isNonNegativeInteger(parsedStepDraft);
+
   return (
     <div
       ref={containerRef}
@@ -472,14 +479,8 @@ export default function App() {
                 />
                 <button
                   type="button"
-                  onClick={() => applyRevealStep(Number(stepDraft))}
-                  disabled={
-                    !selectedElement ||
-                    !isEditableFiguroMetadata(selectedElement) ||
-                    stepDraft.trim() === "" ||
-                    !Number.isSafeInteger(Number(stepDraft)) ||
-                    Number(stepDraft) < 0
-                  }
+                  onClick={() => canSetStep && applyRevealStep(parsedStepDraft)}
+                  disabled={!canSetStep}
                 >
                   Set step
                 </button>

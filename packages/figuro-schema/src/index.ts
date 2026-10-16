@@ -6,7 +6,7 @@ export type FiguroMetadataV1 = {
   [field: string]: unknown;
 };
 
-/** Whether a value is a recognized v1 object; optional fields stay extensible. */
+/** Whether an object declares v1; validate known field values separately. */
 export function isFiguroMetadataV1(value: unknown): value is FiguroMetadataV1 {
   return (
     typeof value === "object" &&

@@ -60,8 +60,22 @@ final class RevealStepAcceptanceTests: XCTestCase {
 
         let stepField = revealStepField
         XCTAssertTrue(stepField.waitForExistence(timeout: 10))
-        stepField.click()
-        stepField.typeText("3")
+
+        replaceRevealStep(with: "-1")
+        XCTAssertFalse(editor.buttons["Set step"].isEnabled)
+        replaceRevealStep(with: "1.5")
+        XCTAssertFalse(editor.buttons["Set step"].isEnabled)
+        replaceRevealStep(with: "0")
+        XCTAssertTrue(editor.buttons["Set step"].isEnabled)
+        editor.buttons["Set step"].click()
+
+        saveDocument()
+        XCTAssertTrue(waitForSavedStep(0))
+        XCTAssertTrue(editor.staticTexts["Current: Step 0"].exists)
+        XCTAssertTrue(
+            editor.staticTexts["Step 0 and elements without a step are visible initially."].exists)
+
+        replaceRevealStep(with: "3")
         editor.buttons["Set step"].click()
 
         saveDocument()
@@ -130,6 +144,13 @@ final class RevealStepAcceptanceTests: XCTestCase {
         start.press(forDuration: 0.1, thenDragTo: end)
 
         editor.typeKey("v", modifierFlags: [])
+    }
+
+    private func replaceRevealStep(with value: String) {
+        let field = revealStepField
+        field.click()
+        field.typeKey("a", modifierFlags: .command)
+        field.typeText(value)
     }
 
     private func saveDocument() {
