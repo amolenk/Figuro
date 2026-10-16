@@ -44,8 +44,10 @@ final class RevealStepAcceptanceTests: XCTestCase {
         XCTAssertFalse(editor.buttons["Clear step"].isEnabled)
 
         XCTAssertTrue(staysUnchangedForAutosaveWindow(originalContents))
+        moveSelectedElement()
         saveDocument()
-        XCTAssertEqual(try Data(contentsOf: documentURL), originalContents)
+        XCTAssertTrue(waitForElementXToChange(from: 100))
+        assertUnsupportedMetadataRemainsUnchanged()
     }
 
     func testSelectedElementRevealStepSurvivesSaveAndReopenAndCanBeCleared() throws {
@@ -146,6 +148,15 @@ final class RevealStepAcceptanceTests: XCTestCase {
         editor.typeKey("v", modifierFlags: [])
     }
 
+    private func moveSelectedElement() {
+        let inspectorWidth = min(max(editor.frame.width * 0.23, 240), 320)
+        let canvasCenter = (editor.frame.width - inspectorWidth) / 2
+        let x = canvasCenter / editor.frame.width
+        let start = editor.coordinate(withNormalizedOffset: CGVector(dx: x, dy: 0.5))
+        let end = editor.coordinate(withNormalizedOffset: CGVector(dx: x + 0.02, dy: 0.5))
+        start.press(forDuration: 0.1, thenDragTo: end)
+    }
+
     private func replaceRevealStep(with value: String) {
         let field = revealStepField
         field.click()
@@ -181,6 +192,40 @@ final class RevealStepAcceptanceTests: XCTestCase {
             RunLoop.current.run(until: Date().addingTimeInterval(0.1))
         }
         return (try? Data(contentsOf: documentURL)) == expectedContents
+    }
+
+    private func waitForElementXToChange(from originalX: Double) -> Bool {
+        let deadline = Date().addingTimeInterval(10)
+        repeat {
+            if let savedElementX, savedElementX != originalX { return true }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        } while Date() < deadline
+        guard let savedElementX else { return false }
+        return savedElementX != originalX
+    }
+
+    private var savedElementX: Double? {
+        guard
+            let data = try? Data(contentsOf: documentURL),
+            let document = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+            let elements = document["elements"] as? [[String: Any]],
+            let element = elements.first(where: { $0["id"] as? String == "acceptance-target" })
+        else {
+            return nil
+        }
+        return element["x"] as? Double
+    }
+
+    private func assertUnsupportedMetadataRemainsUnchanged() {
+        guard let saved = savedElementMetadata else {
+            XCTFail("The saved element or its Figuro metadata is missing")
+            return
+        }
+
+        XCTAssertEqual(saved.customData["owner"] as? String, "acceptance-fixture")
+        XCTAssertEqual(saved.figuro["v"] as? Int, 2)
+        XCTAssertEqual(saved.figuro["step"] as? Int, 4)
+        XCTAssertEqual(saved.figuro["futureField"] as? [String: Bool], ["keep": true])
     }
 
     private var savedElementMetadata: (customData: [String: Any], figuro: [String: Any])? {
