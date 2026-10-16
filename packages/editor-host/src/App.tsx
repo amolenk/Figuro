@@ -59,6 +59,7 @@ type SceneInteraction = {
   hitElement: boolean;
   dragged: boolean;
 };
+type PendingContent = { elementIds: Set<string>; fileIds: Set<string> };
 
 function isEditableFiguroMetadata(element: ExcalidrawElement): boolean {
   return inspectFiguroMetadata(element.customData?.figuro).kind !== "opaque";
@@ -169,6 +170,7 @@ export default function App() {
   const selectedRevealStep = useRef<number | null>(null);
   const lastSignature = useRef<SceneSignature | null>(null);
   const sceneInteraction = useRef<SceneInteraction | null>(null);
+  const pendingContent = useRef<PendingContent | null>(null);
   /**
    * Whether an actual document edit has occurred since the document was loaded.
    *
@@ -222,6 +224,23 @@ export default function App() {
     }
 
     const current = signature(api);
+    if (!userHasEdited.current && pendingContent.current) {
+      const pending = pendingContent.current;
+      const addedElement = api
+        .getSceneElements()
+        .some((element) => !pending.elementIds.has(element.id));
+      const addedFile = Object.keys(api.getFiles()).some((id) => !pending.fileIds.has(id));
+      if (addedElement || addedFile) {
+        userHasEdited.current = true;
+        userHasInteracted.current = true;
+        pendingContent.current = null;
+        sceneInteraction.current = null;
+        lastSignature.current = current;
+        scheduleFlush();
+        return;
+      }
+    }
+    if (userHasEdited.current) pendingContent.current = null;
     // Rebase through restore normalisation until a real scene edit occurs.
     // While a pointer interaction is in progress, hold the starting signature
     // so its completion can distinguish an edit from a view-only action.
@@ -275,6 +294,15 @@ export default function App() {
       hitElement: false,
       dragged: false,
     };
+  }, [api]);
+
+  const beginExternalContentInteraction = useCallback(() => {
+    if (!api || pendingContent.current) return;
+    pendingContent.current = {
+      elementIds: new Set(api.getSceneElements().map((element) => element.id)),
+      fileIds: new Set(Object.keys(api.getFiles())),
+    };
+    userHasInteracted.current = true;
   }, [api]);
 
   const finishSceneInteraction = useCallback(() => {
@@ -352,9 +380,19 @@ export default function App() {
       ) {
         return;
       }
-      noteUserEdit();
+      const isTextEditor =
+        event.target instanceof HTMLElement &&
+        (event.target.isContentEditable || event.target instanceof HTMLTextAreaElement);
+      if (isTextEditor) {
+        beginKeyboardSceneInteraction();
+        window.setTimeout(() => {
+          if (sceneInteraction.current?.kind === "keyboard") finishSceneInteraction();
+        }, 0);
+        return;
+      }
+      if (event.clipboardData.types.length > 0) beginExternalContentInteraction();
     },
-    [noteUserEdit],
+    [beginExternalContentInteraction, beginKeyboardSceneInteraction, finishSceneInteraction],
   );
 
   const handleCanvasDrop = useCallback(
@@ -366,9 +404,9 @@ export default function App() {
       ) {
         return;
       }
-      noteUserEdit();
+      beginExternalContentInteraction();
     },
-    [noteUserEdit],
+    [beginExternalContentInteraction],
   );
 
   const releaseCanvasKey = useCallback((event: KeyboardEvent<HTMLDivElement>) => {
@@ -460,6 +498,7 @@ export default function App() {
       userHasInteracted.current = false;
       lastSignature.current = null;
       sceneInteraction.current = null;
+      pendingContent.current = null;
       // The scene is committed after this turn of the event loop.
       requestAnimationFrame(() => fitToViewport());
     };
