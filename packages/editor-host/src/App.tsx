@@ -5,6 +5,8 @@ import {
   restore,
   serializeAsJSON,
 } from "@excalidraw/excalidraw";
+import { isFiguroMetadataV1, isNonNegativeInteger } from "@figuro/schema";
+import type { FiguroMetadataV1 } from "@figuro/schema";
 import type { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import {
@@ -45,16 +47,6 @@ const CHURN_KEYS = new Set(["version", "versionNonce", "updated"]);
 
 type SceneSignature = string;
 
-type FiguroMetadata = Record<string, unknown> & { v: 1 };
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function isFiguroMetadataV1(value: unknown): value is FiguroMetadata {
-  return isRecord(value) && value.v === 1;
-}
-
 function isEditableFiguroMetadata(element: ExcalidrawElement): boolean {
   const metadata = element.customData?.figuro;
   return metadata === undefined || isFiguroMetadataV1(metadata);
@@ -65,9 +57,7 @@ function revealStepOf(element: ExcalidrawElement | null): number | null {
   const metadata = element.customData?.figuro;
   if (
     !isFiguroMetadataV1(metadata) ||
-    typeof metadata.step !== "number" ||
-    !Number.isSafeInteger(metadata.step) ||
-    metadata.step < 0
+    !isNonNegativeInteger(metadata.step)
   ) {
     return null;
   }
@@ -99,7 +89,9 @@ function withRevealStep(
   if (existing !== undefined && !isFiguroMetadataV1(existing)) return null;
   if (step === null && existing === undefined) return element;
 
-  const metadata: FiguroMetadata = isFiguroMetadataV1(existing) ? { ...existing } : { v: 1 };
+  const metadata: FiguroMetadataV1 = isFiguroMetadataV1(existing)
+    ? { ...existing }
+    : { v: 1 };
   if (step === null) delete metadata.step;
   else metadata.step = step;
 

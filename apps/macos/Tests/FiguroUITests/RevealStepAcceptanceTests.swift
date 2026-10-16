@@ -7,9 +7,12 @@ final class RevealStepAcceptanceTests: XCTestCase {
 
     override func setUpWithError() throws {
         continueAfterFailure = false
+        try copyFixture(named: "reveal-step")
+    }
 
+    private func copyFixture(named name: String) throws {
         let fixture = try XCTUnwrap(
-            Bundle(for: Self.self).url(forResource: "reveal-step", withExtension: "excalidraw"))
+            Bundle(for: Self.self).url(forResource: name, withExtension: "excalidraw"))
         documentURL = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString)
             .appendingPathExtension("excalidraw")
@@ -23,12 +26,35 @@ final class RevealStepAcceptanceTests: XCTestCase {
         }
     }
 
+    func testUnknownMetadataVersionRemainsOpaque() throws {
+        try FileManager.default.removeItem(at: documentURL)
+        try copyFixture(named: "unsupported-version")
+        let originalContents = try Data(contentsOf: documentURL)
+
+        app = XCUIApplication()
+        app.launch()
+        openDocument()
+        selectOnlyElement()
+
+        let warning = editor.staticTexts.matching(
+            NSPredicate(format: "label CONTAINS %@", "unsupported Figuro metadata version")
+        ).firstMatch
+        XCTAssertTrue(warning.waitForExistence(timeout: 5))
+        XCTAssertFalse(editor.buttons["Set step"].isEnabled)
+        XCTAssertFalse(editor.buttons["Clear step"].isEnabled)
+
+        XCTAssertTrue(staysUnchangedForAutosaveWindow(originalContents))
+        saveDocument()
+        XCTAssertEqual(try Data(contentsOf: documentURL), originalContents)
+    }
+
     func testSelectedElementRevealStepSurvivesSaveAndReopenAndCanBeCleared() throws {
         let originalContents = try Data(contentsOf: documentURL)
         app = XCUIApplication()
         app.launch()
         openDocument()
         selectOnlyElement()
+        XCTAssertTrue(editor.staticTexts["Current: No step · visible initially"].exists)
         switchToolsAndPan()
         XCTAssertTrue(staysUnchangedForAutosaveWindow(originalContents))
 
@@ -113,10 +139,18 @@ final class RevealStepAcceptanceTests: XCTestCase {
     private func waitForSavedStep(_ expectedStep: Int?) -> Bool {
         let deadline = Date().addingTimeInterval(10)
         repeat {
-            if savedStep == expectedStep { return true }
+            if hasSavedStep(expectedStep) { return true }
             RunLoop.current.run(until: Date().addingTimeInterval(0.1))
         } while Date() < deadline
-        return savedStep == expectedStep
+        return hasSavedStep(expectedStep)
+    }
+
+    private func hasSavedStep(_ expectedStep: Int?) -> Bool {
+        guard let metadata = savedElementMetadata?.figuro else { return false }
+        if let expectedStep {
+            return metadata["step"] as? Int == expectedStep
+        }
+        return metadata["step"] == nil
     }
 
     private func staysUnchangedForAutosaveWindow(_ expectedContents: Data) -> Bool {
@@ -128,7 +162,7 @@ final class RevealStepAcceptanceTests: XCTestCase {
         return (try? Data(contentsOf: documentURL)) == expectedContents
     }
 
-    private var savedStep: Int? {
+    private var savedElementMetadata: (customData: [String: Any], figuro: [String: Any])? {
         guard
             let data = try? Data(contentsOf: documentURL),
             let document = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
@@ -139,25 +173,22 @@ final class RevealStepAcceptanceTests: XCTestCase {
         else {
             return nil
         }
-        return metadata["step"] as? Int
+        return (customData, metadata)
     }
 
     private func assertUnrelatedAndUnknownMetadataArePreserved(step: Int?) {
-        guard
-            let data = try? Data(contentsOf: documentURL),
-            let document = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-            let elements = document["elements"] as? [[String: Any]],
-            let element = elements.first(where: { $0["id"] as? String == "acceptance-target" }),
-            let customData = element["customData"] as? [String: Any],
-            let metadata = customData["figuro"] as? [String: Any]
-        else {
+        guard let saved = savedElementMetadata else {
             XCTFail("The saved element or its Figuro metadata is missing")
             return
         }
 
-        XCTAssertEqual(customData["owner"] as? String, "acceptance-fixture")
-        XCTAssertEqual(metadata["v"] as? Int, 1)
-        XCTAssertEqual(metadata["futureField"] as? [String: Bool], ["keep": true])
-        XCTAssertEqual(metadata["step"] as? Int, step)
+        XCTAssertEqual(saved.customData["owner"] as? String, "acceptance-fixture")
+        XCTAssertEqual(saved.figuro["v"] as? Int, 1)
+        XCTAssertEqual(saved.figuro["futureField"] as? [String: Bool], ["keep": true])
+        if let step {
+            XCTAssertEqual(saved.figuro["step"] as? Int, step)
+        } else {
+            XCTAssertNil(saved.figuro["step"])
+        }
     }
 }

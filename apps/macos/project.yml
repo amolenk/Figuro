@@ -70,6 +70,7 @@ targets:
       - path: Tests/FiguroUITests
     resources:
       - path: Tests/Fixtures/reveal-step.excalidraw
+      - path: Tests/Fixtures/unsupported-version.excalidraw
     dependencies:
       - target: Figuro
     settings:
