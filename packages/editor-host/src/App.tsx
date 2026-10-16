@@ -11,6 +11,7 @@ import type { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import {
   type KeyboardEvent,
+  type PointerEvent as ReactPointerEvent,
   useCallback,
   useEffect,
   useRef,
@@ -46,6 +47,15 @@ const DOCUMENT_APP_STATE_KEYS = [
 const CHURN_KEYS = new Set(["version", "versionNonce", "updated"]);
 
 type SceneSignature = string;
+type SceneInteraction = {
+  signature: SceneSignature;
+  activeTool: string;
+  canCreateSceneElement: boolean;
+  isEditorControl: boolean;
+  isPanGesture: boolean;
+  hitElement: boolean;
+  dragged: boolean;
+};
 
 function isEditableFiguroMetadata(element: ExcalidrawElement): boolean {
   const metadata = element.customData?.figuro;
@@ -155,7 +165,7 @@ export default function App() {
   const selectedElementId = useRef<string | null>(null);
   const selectedRevealStep = useRef<number | null>(null);
   const lastSignature = useRef<SceneSignature | null>(null);
-  const sceneInteractionSignature = useRef<SceneSignature | null>(null);
+  const sceneInteraction = useRef<SceneInteraction | null>(null);
   /**
    * Whether an actual document edit has occurred since the document was loaded.
    *
@@ -167,6 +177,7 @@ export default function App() {
    */
   const userHasEdited = useRef(false);
   const userHasInteracted = useRef(false);
+  const spacebarHeld = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const flushTimer = useRef<number | null>(null);
 
@@ -212,7 +223,7 @@ export default function App() {
     // While a pointer interaction is in progress, hold the starting signature
     // so its completion can distinguish an edit from a view-only action.
     if (!userHasEdited.current) {
-      if (sceneInteractionSignature.current === null) {
+      if (sceneInteraction.current === null) {
         lastSignature.current = current;
       }
       return;
@@ -227,20 +238,46 @@ export default function App() {
     userHasInteracted.current = true;
   }, []);
 
-  const beginSceneInteraction = useCallback(() => {
+  const beginSceneInteraction = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
     userHasInteracted.current = true;
     if (!api) return;
-    sceneInteractionSignature.current = signature(api);
+    const activeTool = api.getAppState().activeTool.type;
+    const target = event.target;
+    sceneInteraction.current = {
+      signature: signature(api),
+      activeTool,
+      canCreateSceneElement: !["selection", "hand", "laser", "custom"].includes(activeTool),
+      isEditorControl:
+        target instanceof Element &&
+        target.closest("button, input, select, [role='button']") !== null,
+      isPanGesture: event.button !== 0 || spacebarHeld.current,
+      hitElement: false,
+      dragged: false,
+    };
   }, [api]);
 
   const finishSceneInteraction = useCallback(() => {
     if (!api) return;
-    const before = sceneInteractionSignature.current;
-    sceneInteractionSignature.current = null;
+    const before = sceneInteraction.current;
+    sceneInteraction.current = null;
     if (before === null) return;
 
     const current = signature(api);
-    if (!userHasEdited.current && current !== before) {
+    const activeTool = api.getAppState().activeTool.type;
+    const wasViewOnlyToolGesture =
+      before.activeTool === "hand" ||
+      activeTool !== before.activeTool ||
+      before.isPanGesture;
+    const couldEditScene =
+      before.canCreateSceneElement ||
+      before.isEditorControl ||
+      (before.activeTool === "selection" && before.hitElement && before.dragged);
+    if (
+      !userHasEdited.current &&
+      current !== before.signature &&
+      couldEditScene &&
+      !wasViewOnlyToolGesture
+    ) {
       userHasEdited.current = true;
       lastSignature.current = current;
       scheduleFlush();
@@ -252,6 +289,7 @@ export default function App() {
   const noteCanvasKeyEdit = useCallback(
     (event: KeyboardEvent<HTMLDivElement>) => {
       userHasInteracted.current = true;
+      if (event.code === "Space") spacebarHeld.current = true;
       const key = event.key.toLowerCase();
       const isTextEditor =
         event.target instanceof HTMLElement &&
@@ -280,6 +318,10 @@ export default function App() {
     },
     [api, noteUserEdit],
   );
+
+  const releaseCanvasKey = useCallback((event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.code === "Space") spacebarHeld.current = false;
+  }, []);
 
   useEffect(() => {
     const finishAfterPointerEvents = () => {
@@ -350,7 +392,7 @@ export default function App() {
       userHasEdited.current = false;
       userHasInteracted.current = false;
       lastSignature.current = null;
-      sceneInteractionSignature.current = null;
+      sceneInteraction.current = null;
       // The scene is committed after this turn of the event loop.
       requestAnimationFrame(() => fitToViewport());
     };
@@ -416,6 +458,7 @@ export default function App() {
         className="figuro-canvas"
         onPointerDownCapture={beginSceneInteraction}
         onKeyDownCapture={noteCanvasKeyEdit}
+        onKeyUpCapture={releaseCanvasKey}
         onPasteCapture={noteUserEdit}
         onDropCapture={noteUserEdit}
         onWheelCapture={() => {
@@ -425,6 +468,15 @@ export default function App() {
         <Excalidraw
           excalidrawAPI={setApi}
           onChange={handleChange}
+          onPointerDown={(_activeTool, pointerDownState) => {
+            if (!sceneInteraction.current) return;
+            sceneInteraction.current.hitElement =
+              pointerDownState.hit.element !== null || pointerDownState.resize.isResizing;
+          }}
+          onPointerUp={(_activeTool, pointerDownState) => {
+            if (!sceneInteraction.current) return;
+            sceneInteraction.current.dragged = pointerDownState.drag.hasOccurred;
+          }}
           // The macOS app owns the file lifecycle, so Excalidraw's own
           // open/save/export entries would be misleading.
           UIOptions={

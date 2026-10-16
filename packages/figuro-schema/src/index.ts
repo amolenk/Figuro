@@ -21,3 +21,12 @@ export function isFiguroMetadataV1(value: unknown): value is FiguroMetadataV1 {
 export function isNonNegativeInteger(value: unknown): value is number {
   return typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
 }
+
+/** Whether the recognized v1 fields conform to their declared value types. */
+export function isValidFiguroMetadataV1(value: unknown): value is FiguroMetadataV1 {
+  return (
+    isFiguroMetadataV1(value) &&
+    (!("step" in value) || isNonNegativeInteger(value.step)) &&
+    (!("role" in value) || typeof value.role === "string")
+  );
+}
