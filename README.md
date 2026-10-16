@@ -6,7 +6,9 @@ See [docs/SPEC.md](docs/SPEC.md) for the design.
 
 ## Status
 
-Phase 1 in progress: the native editor. No presentation features yet.
+Phase 1 editor work is in progress, and initial Phase 2 metadata authoring has begun.
+The persistent Presentation inspector can set or clear a reveal step on one selected
+element; its metadata is stored in `customData.figuro` and survives save/reopen.
 
 Working and verified end to end through real input events:
 
@@ -35,6 +37,8 @@ make run
 ```
 
 The app is ad-hoc signed for local use. There is no Apple Developer account involved and the App Sandbox is off.
+
+Run the macOS acceptance suite with `make test`.
 
 ## Layout
 

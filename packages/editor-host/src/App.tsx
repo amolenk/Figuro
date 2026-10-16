@@ -5,10 +5,12 @@ import {
   restore,
   serializeAsJSON,
 } from "@excalidraw/excalidraw";
+import type { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { hasHost, postToHost } from "./bridge";
+import "./App.css";
 
 /**
  * App state keys that are part of the document rather than the view.
@@ -36,6 +38,75 @@ const DOCUMENT_APP_STATE_KEYS = [
 const CHURN_KEYS = new Set(["version", "versionNonce", "updated"]);
 
 type SceneSignature = string;
+
+type FiguroMetadata = Record<string, unknown> & { v: 1 };
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isEditableFiguroMetadata(element: ExcalidrawElement): boolean {
+  const metadata = element.customData?.figuro;
+  return metadata === undefined || (isRecord(metadata) && metadata.v === 1);
+}
+
+function revealStepOf(element: ExcalidrawElement | null): number | null {
+  if (!element) return null;
+  const metadata = element.customData?.figuro;
+  if (
+    !isRecord(metadata) ||
+    metadata.v !== 1 ||
+    typeof metadata.step !== "number" ||
+    !Number.isSafeInteger(metadata.step) ||
+    metadata.step < 0
+  ) {
+    return null;
+  }
+  return metadata.step;
+}
+
+function revealStepLabel(element: ExcalidrawElement | null): string {
+  if (!element) return "";
+  const metadata = element.customData?.figuro;
+  if (metadata === undefined) return "No step · visible initially";
+  if (!isRecord(metadata) || metadata.v !== 1) return "Unsupported Figuro metadata";
+  if (!("step" in metadata)) return "No step · visible initially";
+  const step = revealStepOf(element);
+  return step === null ? "Invalid reveal step" : `Step ${step}`;
+}
+
+function hasRevealStep(element: ExcalidrawElement | null): boolean {
+  if (!element) return false;
+  const metadata = element.customData?.figuro;
+  return isRecord(metadata) && metadata.v === 1 && "step" in metadata;
+}
+
+function withRevealStep(
+  element: ExcalidrawElement,
+  step: number | null,
+): ExcalidrawElement | null {
+  const customData: Record<string, unknown> = { ...element.customData };
+  const existing = customData.figuro;
+  if (existing !== undefined && (!isRecord(existing) || existing.v !== 1)) return null;
+  if (step === null && existing === undefined) return element;
+
+  const metadata: FiguroMetadata = isRecord(existing)
+    ? { ...existing, v: 1 }
+    : { v: 1 };
+  if (step === null) delete metadata.step;
+  else metadata.step = step;
+
+  if (Object.keys(metadata).every((key) => key === "v")) {
+    delete customData.figuro;
+  } else {
+    customData.figuro = metadata;
+  }
+
+  return {
+    ...element,
+    customData: Object.keys(customData).length > 0 ? customData : undefined,
+  } as ExcalidrawElement;
+}
 
 /**
  * A stable fingerprint of everything that belongs to the saved document.
@@ -79,6 +150,9 @@ function serialize(api: ExcalidrawImperativeAPI): string {
 
 export default function App() {
   const [api, setApi] = useState<ExcalidrawImperativeAPI | null>(null);
+  const [selectedElement, setSelectedElement] = useState<ExcalidrawElement | null>(null);
+  const [selectionCount, setSelectionCount] = useState(0);
+  const [stepDraft, setStepDraft] = useState("");
   const lastSignature = useRef<SceneSignature | null>(null);
   /**
    * Whether the user has touched the canvas since the document was loaded.
@@ -112,6 +186,15 @@ export default function App() {
 
   const handleChange = useCallback(() => {
     if (!api) return;
+    const selectedIds = api.getAppState().selectedElementIds;
+    const selectedElements = api
+      .getSceneElements()
+      .filter((element) => selectedIds[element.id]);
+    const singleSelection = selectedElements.length === 1 ? selectedElements[0] : null;
+    setSelectionCount(selectedElements.length);
+    setSelectedElement(singleSelection ?? null);
+    setStepDraft(revealStepOf(singleSelection ?? null)?.toString() ?? "");
+
     const current = signature(api);
     // Until the user edits something, keep rebasing the baseline. Excalidraw
     // normalises a restored scene over several frames, and none of that is an
@@ -129,6 +212,18 @@ export default function App() {
   const noteUserEdit = useCallback(() => {
     userHasEdited.current = true;
   }, []);
+
+  const applyRevealStep = useCallback(
+    (step: number | null) => {
+      if (!api || !selectedElement) return;
+      const elements = api.getSceneElementsIncludingDeleted().map((element) => {
+        if (element.id !== selectedElement.id) return element;
+        return withRevealStep(element, step) ?? element;
+      });
+      api.updateScene({ elements, captureUpdate: "IMMEDIATELY" });
+    },
+    [api, selectedElement],
+  );
 
   /**
    * Keeps the drawing framed until the user takes over.
@@ -223,30 +318,107 @@ export default function App() {
   return (
     <div
       ref={containerRef}
-      style={{ height: "100%" }}
+      className="figuro-workspace"
       onPointerDownCapture={noteUserEdit}
       onKeyDownCapture={noteUserEdit}
       onPasteCapture={noteUserEdit}
       onDropCapture={noteUserEdit}
     >
-      <Excalidraw
-        excalidrawAPI={setApi}
-        onChange={handleChange}
-        // The macOS app owns the file lifecycle, so Excalidraw's own
-        // open/save/export entries would be misleading.
-        UIOptions={
-          hasHost()
-            ? {
-                canvasActions: {
-                  loadScene: false,
-                  saveToActiveFile: false,
-                  export: false,
-                  saveAsImage: false,
-                },
-              }
-            : undefined
-        }
-      />
+      <div className="figuro-canvas">
+        <Excalidraw
+          excalidrawAPI={setApi}
+          onChange={handleChange}
+          // The macOS app owns the file lifecycle, so Excalidraw's own
+          // open/save/export entries would be misleading.
+          UIOptions={
+            hasHost()
+              ? {
+                  canvasActions: {
+                    loadScene: false,
+                    saveToActiveFile: false,
+                    export: false,
+                    saveAsImage: false,
+                  },
+                }
+              : undefined
+          }
+        />
+      </div>
+
+      <aside className="presentation-inspector" aria-label="Presentation inspector">
+        <header className="inspector-heading">
+          <div>
+            <div className="inspector-eyebrow">Figuro metadata</div>
+            <h1>Presentation</h1>
+          </div>
+          {selectionCount === 1 && <span className="selection-count">1 selected</span>}
+        </header>
+
+        {selectionCount === 0 ? (
+          <p className="inspector-empty">
+            Select one element in the drawing to edit its reveal step.
+          </p>
+        ) : selectionCount > 1 ? (
+          <p className="inspector-empty">
+            {selectionCount} elements selected. Select one element to edit its reveal step.
+          </p>
+        ) : (
+          <>
+            <section className="inspector-control">
+              <label htmlFor="reveal-step-input">Reveal step</label>
+              <p className="step-current">Current: {revealStepLabel(selectedElement)}</p>
+              <div className="step-form">
+                <input
+                  id="reveal-step-input"
+                  aria-label="Reveal step"
+                  type="number"
+                  min="0"
+                  step="1"
+                  inputMode="numeric"
+                  placeholder="e.g. 2"
+                  value={stepDraft}
+                  disabled={!selectedElement || !isEditableFiguroMetadata(selectedElement)}
+                  onChange={(event) => setStepDraft(event.currentTarget.value)}
+                />
+                <button
+                  type="button"
+                  onClick={() => applyRevealStep(Number(stepDraft))}
+                  disabled={
+                    !selectedElement ||
+                    !isEditableFiguroMetadata(selectedElement) ||
+                    stepDraft.trim() === "" ||
+                    !Number.isSafeInteger(Number(stepDraft)) ||
+                    Number(stepDraft) < 0
+                  }
+                >
+                  Set step
+                </button>
+              </div>
+              <button
+                className="clear-step"
+                type="button"
+                onClick={() => applyRevealStep(null)}
+                disabled={
+                  !selectedElement ||
+                  !isEditableFiguroMetadata(selectedElement) ||
+                  !hasRevealStep(selectedElement)
+                }
+              >
+                Clear step
+              </button>
+              <p className="inspector-help">
+                Step 0 and elements without a step are visible initially.
+              </p>
+              {selectedElement && !isEditableFiguroMetadata(selectedElement) && (
+                <p className="inspector-warning" role="status">
+                  This element uses an unsupported Figuro metadata version. Its metadata is kept
+                  unchanged.
+                </p>
+              )}
+            </section>
+          </>
+        )}
+      </aside>
     </div>
   );
 }

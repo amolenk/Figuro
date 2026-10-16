@@ -62,3 +62,26 @@ targets:
       - name: Build editor host
         script: "\"$SRCROOT/Scripts/build-editor-host.sh\""
         basedOnDependencyAnalysis: false
+
+  FiguroUITests:
+    type: bundle.ui-testing
+    platform: macOS
+    sources:
+      - path: Tests/FiguroUITests
+    resources:
+      - path: Tests/Fixtures/reveal-step.excalidraw
+    dependencies:
+      - target: Figuro
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.amolenk.FiguroUITests
+
+schemes:
+  Figuro:
+    build:
+      targets:
+        Figuro: all
+        FiguroUITests: [test]
+    test:
+      targets:
+        - FiguroUITests

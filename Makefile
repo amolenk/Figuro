@@ -1,13 +1,14 @@
 SHELL := /bin/bash
 APP := apps/macos/build/Build/Products/Debug/Figuro.app
 
-.PHONY: help install editor-host project build run clean
+.PHONY: help install editor-host project build test run clean
 
 help:
 	@echo "make install      Install JavaScript dependencies"
 	@echo "make editor-host  Build the Excalidraw editor host"
 	@echo "make project      Generate Figuro.xcodeproj with XcodeGen"
 	@echo "make build        Build the macOS app"
+	@echo "make test         Run macOS acceptance tests"
 	@echo "make run          Build and launch the macOS app"
 	@echo "make clean        Remove build output"
 
@@ -25,6 +26,10 @@ project: editor-host
 build: project
 	xcodebuild -project apps/macos/Figuro.xcodeproj -scheme Figuro \
 		-configuration Debug -derivedDataPath apps/macos/build build
+
+test: project
+	xcodebuild -project apps/macos/Figuro.xcodeproj -scheme Figuro \
+		-configuration Debug -derivedDataPath apps/macos/build test
 
 run: build
 	open $(APP)
