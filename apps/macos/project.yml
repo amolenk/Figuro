@@ -68,14 +68,16 @@ targets:
     platform: macOS
     sources:
       - path: Tests/FiguroUITests
-    resources:
       - path: Tests/Fixtures/reveal-step.excalidraw
+        buildPhase: resources
       - path: Tests/Fixtures/unsupported-version.excalidraw
+        buildPhase: resources
     dependencies:
       - target: Figuro
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: dev.amolenk.FiguroUITests
+        GENERATE_INFOPLIST_FILE: YES
 
 schemes:
   Figuro:

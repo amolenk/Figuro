@@ -14,3 +14,7 @@ apps/macos/Resources/EditorHost/
 
 xcuserdata/
 *.xcworkspace/xcuserdata/
+
+# Shared-directory UI test jobs and Python runner caches
+.ui-tests/
+__pycache__/

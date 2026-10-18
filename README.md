@@ -39,6 +39,28 @@ make run
 The app is ad-hoc signed for local use. There is no Apple Developer account involved and the App Sandbox is off.
 
 Run the macOS acceptance suite with `make test`.
+Each run exports its verdict and artifact paths to
+`apps/macos/build/ui-tests/latest.json`, with logs, JSON summaries, and failure
+attachments retained in a separate directory per run. Use `make test-results`
+to export the latest existing Xcode result bundle without rerunning tests.
+Run `make test-setup` once on the Mac to allow XCTest automation without repeated
+administrator authentication.
+
+Sandbox agents can submit the same suite to a runner on your Mac:
+
+```sh
+# On the Mac, from this checkout; leave running in a desktop session.
+python3 scripts/ui-tests.py runner
+
+# In the sandbox, against the shared checkout.
+pnpm --silent test:ui:start
+pnpm --silent test:ui:wait <job-id>
+pnpm --silent test:ui:results <job-id>
+```
+
+Jobs capture uncommitted source changes and return JSON results, build logs, and
+Xcode attachments. See [docs/UI_TEST_RUNNER.md](docs/UI_TEST_RUNNER.md) for setup,
+queue paths, and the agent workflow.
 
 ## Layout
 

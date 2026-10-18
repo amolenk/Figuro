@@ -5,21 +5,37 @@ final class RevealStepAcceptanceTests: XCTestCase {
     private var app: XCUIApplication!
     private var documentURL: URL!
 
-    override func setUpWithError() throws {
+    // Async lifecycle hooks can share this suite's main-actor isolation.
+    @MainActor
+    override func setUp() async throws {
         continueAfterFailure = false
         try copyFixture(named: "reveal-step")
     }
 
     private func copyFixture(named name: String) throws {
+        let bundle = Bundle(for: Self.self)
         let fixture = try XCTUnwrap(
-            Bundle(for: Self.self).url(forResource: name, withExtension: "excalidraw"))
+            bundle.url(forResource: name, withExtension: "excalidraw"),
+            "Missing bundled fixture \(name).excalidraw in \(bundle.bundlePath)")
         documentURL = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString)
             .appendingPathExtension("excalidraw")
         try FileManager.default.copyItem(at: fixture, to: documentURL)
     }
 
-    override func tearDownWithError() throws {
+    @MainActor
+    override func tearDown() async throws {
+        if let app, (testRun?.failureCount ?? 0) > 0 {
+            let hierarchy = XCTAttachment(string: app.debugDescription)
+            hierarchy.name = "Figuro accessibility hierarchy at failure"
+            hierarchy.lifetime = .keepAlways
+            add(hierarchy)
+
+            let screenshot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+            screenshot.name = "Desktop at failure"
+            screenshot.lifetime = .keepAlways
+            add(screenshot)
+        }
         app?.terminate()
         if let documentURL {
             try? FileManager.default.removeItem(at: documentURL)
@@ -37,7 +53,9 @@ final class RevealStepAcceptanceTests: XCTestCase {
         selectOnlyElement()
 
         let warning = editor.staticTexts.matching(
-            NSPredicate(format: "label CONTAINS %@", "unsupported Figuro metadata version")
+            NSPredicate(
+                format: "value CONTAINS %@ OR label CONTAINS %@",
+                "unsupported Figuro metadata version", "unsupported Figuro metadata version")
         ).firstMatch
         XCTAssertTrue(warning.waitForExistence(timeout: 5))
         XCTAssertFalse(editor.buttons["Set step"].isEnabled)
@@ -59,6 +77,8 @@ final class RevealStepAcceptanceTests: XCTestCase {
         XCTAssertTrue(editor.staticTexts["Current: No step · visible initially"].exists)
         switchToolsAndPan()
         XCTAssertTrue(staysUnchangedForAutosaveWindow(originalContents))
+        // Switching to the hand tool clears Excalidraw's selection.
+        selectOnlyElement()
 
         let stepField = revealStepField
         XCTAssertTrue(stepField.waitForExistence(timeout: 10))
@@ -104,26 +124,38 @@ final class RevealStepAcceptanceTests: XCTestCase {
     }
 
     private var documentWindow: XCUIElement {
-        let fileName = documentURL.deletingPathExtension().lastPathComponent
-        return app.windows.matching(NSPredicate(format: "label CONTAINS %@", fileName)).firstMatch
+        app.windows[documentURL.lastPathComponent]
     }
 
     private func openDocument() {
         app.menuBars.menuBarItems["File"].click()
         app.menuItems["Open…"].click()
 
-        let openPanel = app.dialogs.firstMatch
-        XCTAssertTrue(openPanel.waitForExistence(timeout: 5))
+        // Scope to the native panel so a same-named Touch Bar button cannot match.
+        let openPanel = app.windows["open-panel"]
+        XCTAssertTrue(openPanel.waitForExistence(timeout: 5), "File → Open did not show an open panel")
+        let openButton = openPanel.buttons["OKButton"]
+        XCTAssertTrue(openButton.waitForExistence(timeout: 5), "File → Open did not show an open panel")
         app.typeKey("g", modifierFlags: [.command, .shift])
 
-        let goToSheet = app.sheets.firstMatch
+        let goToSheet = app.sheets["GoToWindow"]
         XCTAssertTrue(goToSheet.waitForExistence(timeout: 5))
-        let pathField = goToSheet.textFields.firstMatch
+        let pathField = goToSheet.textFields["PathTextField"]
+        XCTAssertTrue(pathField.waitForExistence(timeout: 5))
         pathField.click()
+        pathField.typeKey("a", modifierFlags: .command)
         pathField.typeText(documentURL.path)
-        goToSheet.buttons["Go"].click()
-        openPanel.buttons["Open"].click()
-        XCTAssertTrue(editor.waitForExistence(timeout: 10))
+        // Current macOS submits the path with Return; there is no Go button.
+        pathField.typeKey(XCUIKeyboardKey.return.rawValue, modifierFlags: [])
+        let sheetDismissed = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "exists == false"), object: goToSheet)
+        XCTAssertEqual(
+            XCTWaiter.wait(for: [sheetDismissed], timeout: 5), .completed,
+            "Go to Folder did not accept the fixture path")
+        openButton.click()
+        XCTAssertTrue(
+            editor.waitForExistence(timeout: 10),
+            "Opened fixture window was not found: \(documentURL.lastPathComponent)")
         XCTAssertTrue(
             editor.staticTexts["Presentation"].waitForExistence(timeout: 10))
     }
@@ -134,7 +166,10 @@ final class RevealStepAcceptanceTests: XCTestCase {
         let canvasCenter = (editor.frame.width - inspectorWidth) / 2
         editor.coordinate(
             withNormalizedOffset: CGVector(dx: canvasCenter / editor.frame.width, dy: 0.5)
-        ).tap()
+        ).click()
+        // The fixture has one element. Select All is independent of the zoom
+        // and pan applied while the document window settles or joins a tab group.
+        app.typeKey("a", modifierFlags: .command)
         XCTAssertTrue(editor.buttons["Set step"].waitForExistence(timeout: 5))
     }
 
@@ -149,12 +184,7 @@ final class RevealStepAcceptanceTests: XCTestCase {
     }
 
     private func moveSelectedElement() {
-        let inspectorWidth = min(max(editor.frame.width * 0.23, 240), 320)
-        let canvasCenter = (editor.frame.width - inspectorWidth) / 2
-        let x = canvasCenter / editor.frame.width
-        let start = editor.coordinate(withNormalizedOffset: CGVector(dx: x, dy: 0.5))
-        let end = editor.coordinate(withNormalizedOffset: CGVector(dx: x + 0.02, dy: 0.5))
-        start.press(forDuration: 0.1, thenDragTo: end)
+        app.typeKey(XCUIKeyboardKey.rightArrow.rawValue, modifierFlags: [])
     }
 
     private func replaceRevealStep(with value: String) {
