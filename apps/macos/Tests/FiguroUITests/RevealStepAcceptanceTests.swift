@@ -60,6 +60,9 @@ final class RevealStepAcceptanceTests: XCTestCase {
         XCTAssertTrue(warning.waitForExistence(timeout: 5))
         XCTAssertFalse(editor.buttons["Set step"].isEnabled)
         XCTAssertFalse(editor.buttons["Clear step"].isEnabled)
+        XCTAssertFalse(editor.buttons["Set role"].isEnabled)
+        XCTAssertFalse(editor.buttons["Clear role"].isEnabled)
+        XCTAssertFalse(semanticStyleRoleField.isEnabled)
 
         XCTAssertTrue(staysUnchangedForAutosaveWindow(originalContents))
         moveSelectedElement()
@@ -113,6 +116,120 @@ final class RevealStepAcceptanceTests: XCTestCase {
         saveDocument()
         XCTAssertTrue(waitForSavedStep(nil))
         assertUnrelatedAndUnknownMetadataArePreserved(step: nil)
+    }
+
+    func testSemanticStyleRoleSurvivesSaveAndReopenAndCanBeClearedIndependently() throws {
+        app = XCUIApplication()
+        app.launch()
+        openDocument()
+        selectOnlyElement()
+
+        replaceRevealStep(with: "3")
+        editor.buttons["Set step"].click()
+        saveDocument()
+        XCTAssertTrue(waitForSavedStep(3))
+        let originalAppearance = try XCTUnwrap(savedElementAppearance)
+
+        XCTAssertTrue(semanticStyleRoleField.waitForExistence(timeout: 5))
+        XCTAssertTrue(editor.staticTexts["Current: No role"].exists)
+        XCTAssertFalse(editor.buttons["Clear role"].isEnabled)
+        replaceSemanticStyleRole(with: "primary")
+        XCTAssertEqual(semanticStyleRoleField.value as? String, "primary")
+        XCTAssertTrue(editor.buttons["Set role"].isEnabled)
+        editor.buttons["Set role"].click()
+        XCTAssertTrue(editor.staticTexts["Current: Role primary"].exists)
+        saveDocument()
+        XCTAssertTrue(waitForSavedRole("primary"))
+        assertUnrelatedAndUnknownMetadataArePreserved(step: 3)
+        XCTAssertEqual(savedElementAppearance, originalAppearance)
+
+        app.typeKey("w", modifierFlags: .command)
+        openDocument()
+        selectOnlyElement()
+        XCTAssertEqual(semanticStyleRoleField.value as? String, "primary")
+        XCTAssertTrue(editor.staticTexts["Current: Role primary"].exists)
+
+        replaceSemanticStyleRole(with: "supporting")
+        editor.buttons["Set role"].click()
+        saveDocument()
+        XCTAssertTrue(waitForSavedRole("supporting"))
+        assertUnrelatedAndUnknownMetadataArePreserved(step: 3)
+        XCTAssertEqual(savedElementAppearance, originalAppearance)
+
+        // Step and role edits must preserve each other in both directions.
+        editor.buttons["Clear step"].click()
+        saveDocument()
+        XCTAssertTrue(waitForSavedStep(nil))
+        XCTAssertEqual(savedElementMetadata?.figuro["role"] as? String, "supporting")
+        replaceRevealStep(with: "3")
+        editor.buttons["Set step"].click()
+        saveDocument()
+        XCTAssertTrue(waitForSavedStep(3))
+        XCTAssertEqual(savedElementMetadata?.figuro["role"] as? String, "supporting")
+
+        editor.buttons["Clear role"].click()
+        saveDocument()
+        XCTAssertTrue(waitForSavedRole(nil))
+        assertUnrelatedAndUnknownMetadataArePreserved(step: 3)
+        XCTAssertEqual(savedElementAppearance, originalAppearance)
+
+        app.typeKey("w", modifierFlags: .command)
+        openDocument()
+        selectOnlyElement()
+        XCTAssertEqual(semanticStyleRoleField.value as? String, "")
+        XCTAssertTrue(editor.staticTexts["Current: No role"].exists)
+        XCTAssertFalse(editor.buttons["Clear role"].isEnabled)
+        XCTAssertFalse(editor.buttons["Set role"].isEnabled)
+        XCTAssertEqual(revealStepField.value as? String, "3")
+    }
+
+    func testRoleOnlyMetadataCanBeAssignedAndRemovedWithoutChangingDrawing() throws {
+        var document = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: Data(contentsOf: documentURL)) as? [String: Any])
+        var elements = try XCTUnwrap(document["elements"] as? [[String: Any]])
+        // Start with an ordinary element whose customData belongs to another tool.
+        elements[0]["customData"] = ["owner": "acceptance-fixture"]
+        document["elements"] = elements
+        try JSONSerialization.data(withJSONObject: document).write(to: documentURL)
+        let originalContents = try Data(contentsOf: documentURL)
+
+        app = XCUIApplication()
+        app.launch()
+        openDocument()
+        selectOnlyElement()
+        XCTAssertTrue(editor.staticTexts["Current: No role"].exists)
+        XCTAssertFalse(editor.buttons["Set role"].isEnabled)
+        replaceSemanticStyleRole(with: "primary")
+        XCTAssertTrue(staysUnchangedForAutosaveWindow(originalContents))
+        editor.buttons["Set role"].click()
+        saveDocument()
+        XCTAssertTrue(waitForSavedRole("primary"))
+        let originalAppearance = try XCTUnwrap(savedElementAppearance)
+        XCTAssertEqual(savedElementMetadata?.figuro["v"] as? Int, 1)
+        XCTAssertNil(savedElementMetadata?.figuro["step"])
+
+        // Reapplying the same role is a no-op, including Excalidraw's version fields.
+        let assignedContents = try Data(contentsOf: documentURL)
+        editor.buttons["Set role"].click()
+        saveDocument()
+        XCTAssertTrue(staysUnchangedForAutosaveWindow(assignedContents))
+
+        editor.buttons["Clear role"].click()
+        saveDocument()
+        XCTAssertTrue(waitForSavedRole(nil))
+        XCTAssertEqual(savedElement?["customData"] as? [String: String], ["owner": "acceptance-fixture"])
+        XCTAssertEqual(savedElementAppearance, originalAppearance)
+
+        app.typeKey("w", modifierFlags: .command)
+        openDocument()
+        selectOnlyElement()
+        XCTAssertTrue(editor.staticTexts["Current: No role"].exists)
+        XCTAssertEqual(semanticStyleRoleField.value as? String, "")
+        XCTAssertFalse(editor.buttons["Clear role"].isEnabled)
+    }
+
+    private var semanticStyleRoleField: XCUIElement {
+        editor.textFields["Semantic style role"]
     }
 
     private var revealStepField: XCUIElement {
@@ -188,7 +305,14 @@ final class RevealStepAcceptanceTests: XCTestCase {
     }
 
     private func replaceRevealStep(with value: String) {
-        let field = revealStepField
+        replaceText(in: revealStepField, with: value)
+    }
+
+    private func replaceSemanticStyleRole(with value: String) {
+        replaceText(in: semanticStyleRoleField, with: value)
+    }
+
+    private func replaceText(in field: XCUIElement, with value: String) {
         field.click()
         field.typeKey("a", modifierFlags: .command)
         field.typeText(value)
@@ -215,6 +339,40 @@ final class RevealStepAcceptanceTests: XCTestCase {
         return metadata["step"] == nil
     }
 
+    private func waitForSavedRole(_ expectedRole: String?) -> Bool {
+        let deadline = Date().addingTimeInterval(10)
+        repeat {
+            if let element = savedElement {
+                let customData = element["customData"] as? [String: Any]
+                let metadata = customData?["figuro"] as? [String: Any]
+                if let expectedRole, metadata?["role"] as? String == expectedRole { return true }
+                if expectedRole == nil && metadata?["role"] == nil { return true }
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        } while Date() < deadline
+        return false
+    }
+
+    private var savedElement: [String: Any]? {
+        guard
+            let data = try? Data(contentsOf: documentURL),
+            let document = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+            let elements = document["elements"] as? [[String: Any]],
+            let element = elements.first(where: { $0["id"] as? String == "acceptance-target" })
+        else {
+            return nil
+        }
+        return element
+    }
+
+    private var savedElementAppearance: NSDictionary? {
+        guard var element = savedElement else { return nil }
+        for field in ["customData", "version", "versionNonce", "updated"] {
+            element.removeValue(forKey: field)
+        }
+        return element as NSDictionary
+    }
+
     private func staysUnchangedForAutosaveWindow(_ expectedContents: Data) -> Bool {
         let deadline = Date().addingTimeInterval(6)
         while Date() < deadline {
@@ -235,15 +393,7 @@ final class RevealStepAcceptanceTests: XCTestCase {
     }
 
     private var savedElementX: Double? {
-        guard
-            let data = try? Data(contentsOf: documentURL),
-            let document = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-            let elements = document["elements"] as? [[String: Any]],
-            let element = elements.first(where: { $0["id"] as? String == "acceptance-target" })
-        else {
-            return nil
-        }
-        return element["x"] as? Double
+        savedElement?["x"] as? Double
     }
 
     private func assertUnsupportedMetadataRemainsUnchanged() {
@@ -260,11 +410,7 @@ final class RevealStepAcceptanceTests: XCTestCase {
 
     private var savedElementMetadata: (customData: [String: Any], figuro: [String: Any])? {
         guard
-            let data = try? Data(contentsOf: documentURL),
-            let document = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-            let elements = document["elements"] as? [[String: Any]],
-            let element = elements.first(where: { $0["id"] as? String == "acceptance-target" }),
-            let customData = element["customData"] as? [String: Any],
+            let customData = savedElement?["customData"] as? [String: Any],
             let metadata = customData["figuro"] as? [String: Any]
         else {
             return nil

@@ -7,8 +7,10 @@ See [docs/SPEC.md](docs/SPEC.md) for the design.
 ## Status
 
 Phase 1 editor work is in progress, and initial Phase 2 metadata authoring has begun.
-The persistent Presentation inspector can set or clear a reveal step on one selected
-element; its metadata is stored in `customData.figuro` and survives save/reopen.
+The persistent Presentation inspector can independently set or clear a reveal step
+and semantic style role on one selected element. Its v1 metadata is stored in
+`customData.figuro` and survives save/reopen. Roles are labels for presentation
+stylesheets; editing them keeps the drawing's appearance in Figuro unchanged.
 
 Working and verified end to end through real input events:
 

@@ -75,18 +75,21 @@
   font-weight: 700;
 }
 
-.step-current {
+.step-current,
+.role-current {
   margin: 0 0 9px;
   color: #6b6b74;
   font-size: 11px;
 }
 
-.step-form {
+.step-form,
+.role-form {
   display: flex;
   gap: 7px;
 }
 
-.step-form input {
+.step-form input,
+.role-form input {
   width: 82px;
   min-width: 0;
   height: 35px;
@@ -99,7 +102,12 @@
   font: inherit;
 }
 
-.step-form button {
+.role-form input {
+  flex: 1;
+}
+
+.step-form button,
+.role-form button {
   min-height: 35px;
   padding: 0 11px;
   border: 0;
@@ -112,12 +120,15 @@
 }
 
 .step-form button:disabled,
-.clear-step:disabled {
+.role-form button:disabled,
+.clear-step:disabled,
+.clear-role:disabled {
   cursor: default;
   opacity: 0.45;
 }
 
-.clear-step {
+.clear-step,
+.clear-role {
   min-height: 31px;
   margin-top: 9px;
   padding: 0 9px;

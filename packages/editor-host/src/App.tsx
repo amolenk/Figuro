@@ -2,6 +2,7 @@ import {
   Excalidraw,
   exportToBlob,
   exportToSvg,
+  newElementWith,
   restore,
   serializeAsJSON,
 } from "@excalidraw/excalidraw";
@@ -88,26 +89,55 @@ function hasRevealStep(element: ExcalidrawElement | null): boolean {
   return state.kind === "v1" && "step" in state.metadata;
 }
 
-function withRevealStep(
+function semanticStyleRoleOf(element: ExcalidrawElement | null): string | null {
+  if (!element) return null;
+  const state = inspectFiguroMetadata(element.customData?.figuro);
+  if (state.kind !== "v1" || typeof state.metadata.role !== "string") return null;
+  return state.metadata.role;
+}
+
+function semanticStyleRoleLabel(element: ExcalidrawElement | null): string {
+  if (!element) return "";
+  const state = inspectFiguroMetadata(element.customData?.figuro);
+  if (state.kind === "unannotated") return "No role";
+  if (state.kind === "opaque") return "Unsupported Figuro metadata";
+  if (!("role" in state.metadata)) return "No role";
+  return typeof state.metadata.role === "string"
+    ? `Role ${state.metadata.role}`
+    : "Invalid semantic style role";
+}
+
+function hasSemanticStyleRole(element: ExcalidrawElement | null): boolean {
+  if (!element) return false;
+  const state = inspectFiguroMetadata(element.customData?.figuro);
+  return state.kind === "v1" && "role" in state.metadata;
+}
+
+type PresentationEdit =
+  | { field: "step"; value: number | null }
+  | { field: "role"; value: string | null };
+
+function withPresentationEdit(
   element: ExcalidrawElement,
-  step: number | null,
+  edit: PresentationEdit,
 ): ExcalidrawElement | null {
   const customData: Record<string, unknown> = { ...element.customData };
   const existing = inspectFiguroMetadata(customData.figuro);
   if (existing.kind === "opaque") return null;
-  if (step === null && existing.kind === "unannotated") return element;
+  if (edit.value === null && existing.kind === "unannotated") return element;
   if (
     existing.kind === "v1" &&
-    ((step === null && !("step" in existing.metadata)) ||
-      (step !== null && existing.metadata.step === step))
+    ((edit.value === null && !(edit.field in existing.metadata)) ||
+      (edit.value !== null && existing.metadata[edit.field] === edit.value))
   ) {
     return element;
   }
 
   const metadata: FiguroMetadataV1 =
     existing.kind === "v1" ? { ...existing.metadata } : { v: 1 };
-  if (step === null) delete metadata.step;
-  else metadata.step = step;
+  if (edit.value === null) delete metadata[edit.field];
+  else if (edit.field === "step") metadata.step = edit.value;
+  else metadata.role = edit.value;
 
   if (Object.keys(metadata).every((key) => key === "v")) {
     delete customData.figuro;
@@ -115,10 +145,12 @@ function withRevealStep(
     customData.figuro = metadata;
   }
 
-  return {
-    ...element,
-    customData: Object.keys(customData).length > 0 ? customData : undefined,
-  } as ExcalidrawElement;
+  return newElementWith(
+    element,
+    { customData: Object.keys(customData).length > 0 ? customData : undefined },
+    // Clearing the last annotation also needs a version bump when customData becomes undefined.
+    true,
+  );
 }
 
 /**
@@ -166,8 +198,10 @@ export default function App() {
   const [selectedElement, setSelectedElement] = useState<ExcalidrawElement | null>(null);
   const [selectionCount, setSelectionCount] = useState(0);
   const [stepDraft, setStepDraft] = useState("");
+  const [roleDraft, setRoleDraft] = useState("");
   const selectedElementId = useRef<string | null>(null);
   const selectedRevealStep = useRef<number | null>(null);
+  const selectedSemanticStyleRole = useRef<string | null>(null);
   const lastSignature = useRef<SceneSignature | null>(null);
   const sceneInteraction = useRef<SceneInteraction | null>(null);
   const pendingContent = useRef<PendingContent | null>(null);
@@ -212,8 +246,16 @@ export default function App() {
     const singleSelection = selectedElements.length === 1 ? selectedElements[0] : null;
     const singleSelectionId = singleSelection?.id ?? null;
     const singleSelectionStep = revealStepOf(singleSelection ?? null);
+    const singleSelectionRole = semanticStyleRoleOf(singleSelection ?? null);
     setSelectionCount(selectedElements.length);
     setSelectedElement(singleSelection ?? null);
+    if (
+      singleSelectionId !== selectedElementId.current ||
+      singleSelectionRole !== selectedSemanticStyleRole.current
+    ) {
+      selectedSemanticStyleRole.current = singleSelectionRole;
+      setRoleDraft(singleSelectionRole ?? "");
+    }
     if (
       singleSelectionId !== selectedElementId.current ||
       singleSelectionStep !== selectedRevealStep.current
@@ -437,13 +479,13 @@ export default function App() {
     };
   }, [finishSceneInteraction]);
 
-  const applyRevealStep = useCallback(
-    (step: number | null) => {
+  const applyPresentationEdit = useCallback(
+    (edit: PresentationEdit) => {
       if (!api || !selectedElement) return;
       let changed = false;
       const elements = api.getSceneElementsIncludingDeleted().map((element) => {
         if (element.id !== selectedElement.id) return element;
-        const updated = withRevealStep(element, step);
+        const updated = withPresentationEdit(element, edit);
         if (updated && updated !== element) changed = true;
         return updated ?? element;
       });
@@ -554,6 +596,10 @@ export default function App() {
     isEditableFiguroMetadata(selectedElement) &&
     stepDraft.trim() !== "" &&
     isNonNegativeInteger(parsedStepDraft);
+  const canSetRole =
+    selectedElement !== null &&
+    isEditableFiguroMetadata(selectedElement) &&
+    roleDraft.trim() !== "";
 
   return (
     <div
@@ -611,11 +657,12 @@ export default function App() {
 
         {selectionCount === 0 ? (
           <p className="inspector-empty">
-            Select one element in the drawing to edit its reveal step.
+            Select one element in the drawing to edit its reveal step and semantic style role.
           </p>
         ) : selectionCount > 1 ? (
           <p className="inspector-empty">
-            {selectionCount} elements selected. Select one element to edit its reveal step.
+            {selectionCount} elements selected. Select one element to edit its reveal step and
+            semantic style role.
           </p>
         ) : (
           <>
@@ -637,7 +684,9 @@ export default function App() {
                 />
                 <button
                   type="button"
-                  onClick={() => canSetStep && applyRevealStep(parsedStepDraft)}
+                  onClick={() =>
+                    canSetStep && applyPresentationEdit({ field: "step", value: parsedStepDraft })
+                  }
                   disabled={!canSetStep}
                 >
                   Set step
@@ -646,7 +695,7 @@ export default function App() {
               <button
                 className="clear-step"
                 type="button"
-                onClick={() => applyRevealStep(null)}
+                onClick={() => applyPresentationEdit({ field: "step", value: null })}
                 disabled={
                   !selectedElement ||
                   !isEditableFiguroMetadata(selectedElement) ||
@@ -658,13 +707,56 @@ export default function App() {
               <p className="inspector-help">
                 Step 0 and elements without a step are visible initially.
               </p>
-              {selectedElement && !isEditableFiguroMetadata(selectedElement) && (
-                <p className="inspector-warning" role="status">
-                  This element uses an unsupported Figuro metadata version. Its metadata is kept
-                  unchanged.
-                </p>
-              )}
             </section>
+            <section className="inspector-control">
+              <label htmlFor="semantic-style-role-input">Semantic style role</label>
+              <p className="role-current">Current: {semanticStyleRoleLabel(selectedElement)}</p>
+              <div className="role-form">
+                <input
+                  id="semantic-style-role-input"
+                  aria-label="Semantic style role"
+                  type="text"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  placeholder="e.g. primary"
+                  value={roleDraft}
+                  disabled={!selectedElement || !isEditableFiguroMetadata(selectedElement)}
+                  onChange={(event) => setRoleDraft(event.currentTarget.value)}
+                />
+                <button
+                  type="button"
+                  onClick={() =>
+                    canSetRole && applyPresentationEdit({ field: "role", value: roleDraft })
+                  }
+                  disabled={!canSetRole}
+                >
+                  Set role
+                </button>
+              </div>
+              <button
+                className="clear-role"
+                type="button"
+                onClick={() => applyPresentationEdit({ field: "role", value: null })}
+                disabled={
+                  !selectedElement ||
+                  !isEditableFiguroMetadata(selectedElement) ||
+                  !hasSemanticStyleRole(selectedElement)
+                }
+              >
+                Clear role
+              </button>
+              <p className="inspector-help">
+                A presentation stylesheet can style this role. The drawing's appearance stays the
+                same in Figuro.
+              </p>
+            </section>
+            {selectedElement && !isEditableFiguroMetadata(selectedElement) && (
+              <p className="inspector-warning" role="status">
+                This element uses an unsupported Figuro metadata version. Its metadata is kept
+                unchanged.
+              </p>
+            )}
           </>
         )}
       </aside>
