@@ -50,3 +50,31 @@ layout: center
 ---
 
 <FiguroDiagram src="./drawings/roles.excalidraw" />
+
+---
+
+<FiguroDiagram src="./drawings/malformed-metadata.excalidraw" stylesheet="./styles/metadata.css" />
+
+---
+
+# After malformed metadata
+
+---
+
+<FiguroDiagram src="./drawings/unknown-metadata.excalidraw" stylesheet="./styles/metadata.css" />
+
+---
+
+<FiguroDiagram src="./drawings/unknown-metadata.excalidraw" />
+
+---
+
+# After unknown metadata
+
+---
+
+<FiguroDiagram src="./drawings/malformed-metadata.excalidraw" />
+
+---
+
+<FiguroDiagram src="./drawings/malformed-values.excalidraw" stylesheet="./styles/roles.css" />

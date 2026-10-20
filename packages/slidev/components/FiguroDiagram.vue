@@ -6,6 +6,7 @@ import type { BinaryFiles } from "@excalidraw/excalidraw/types";
 import type { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
 import assetPath from "virtual:figuro-fonts";
 import { prepareRoleStyling } from "../src/role-styling";
+import { preparePresentationMetadata, warnPresentationMetadata } from "../src/presentation-metadata";
 
 const props = defineProps<{
   src: string;
@@ -25,8 +26,8 @@ function revealStep(element: ExcalidrawElement): number {
 
 // Slot names must be available synchronously: Slidev captures v-switch slots
 // when it mounts, before the asynchronous SVG exports have finished.
-const steps = computed(() => [0, ...new Set((props.drawing?.elements ?? [])
-  .filter(element => !element.isDeleted)
+const presentation = computed(() => preparePresentationMetadata(props.drawing?.elements ?? []));
+const steps = computed(() => [0, ...new Set(presentation.value.elements
   .map(revealStep).filter(step => step > 0))].sort((left, right) => left - right));
 const markup = ref<string[]>([]);
 const error = ref("");
@@ -39,7 +40,9 @@ watch(() => props.drawing, async (_, __, onCleanup) => {
   try {
     window.EXCALIDRAW_ASSET_PATH = new URL(assetPath, document.baseURI).href;
     if (!props.drawing) throw new Error("Drawing was not loaded by the Figuro addon.");
-    const elements = restoreElements(props.drawing.elements, null).filter(element => !element.isDeleted);
+    const prepared = presentation.value;
+    warnPresentationMetadata(props.src, prepared);
+    const elements = restoreElements(prepared.elements, null).filter(element => !element.isDeleted);
     const roles = prepareRoleStyling(elements, props.src);
     const stages: string[] = [];
     for (const step of steps.value) {

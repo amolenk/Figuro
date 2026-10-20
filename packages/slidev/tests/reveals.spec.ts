@@ -1,23 +1,9 @@
 import { expect, test } from "@playwright/test";
 import type { Locator } from "@playwright/test";
 import { readFile } from "node:fs/promises";
+import { isPainted } from "./painted";
 
 const drawing = new URL("./fixtures/deck/drawings/reveals.excalidraw", import.meta.url);
-
-// Inspect painted content by its text/color, independent of SVG node order or
-// whether a renderer removes, hides, or makes unrevealed content transparent.
-async function isPainted(content: Locator): Promise<boolean> {
-  return content.evaluateAll(nodes => nodes.some(node => {
-    if (!node.getBoundingClientRect().width) return false;
-    for (let current: Element | null = node; current; current = current.parentElement) {
-      const style = getComputedStyle(current);
-      if (style.display === "none" || style.visibility === "hidden" || Number(style.opacity) === 0) return false;
-    }
-    const paint = getComputedStyle(node);
-    return (paint.fill !== "none" && Number(paint.fillOpacity) > 0)
-      || (paint.stroke !== "none" && Number(paint.strokeOpacity) > 0);
-  }));
-}
 
 async function svgFrame(diagram: Locator) {
   return diagram.locator("svg:visible").evaluate(svg => ({

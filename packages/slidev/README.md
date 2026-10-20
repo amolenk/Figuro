@@ -124,6 +124,29 @@ clicks, with no extra clicks for the gaps. Backward navigation hides the most
 recent reveal, and forward navigation after the final reveal advances the deck.
 Deleted elements do not add reveal steps.
 
+## Metadata warnings and fallbacks
+
+The addon accepts unannotated drawings and `customData.figuro` objects with
+`v: 1`, an optional non-negative safe-integer `step`, and an optional string
+`role`. Unknown fields in v1 objects are ignored.
+
+Malformed metadata produces a warning naming the drawing and affected element.
+All metadata on that element is ignored: it stays visible from step 0 with its
+original Excalidraw appearance unless a general stylesheet rule matches it.
+Other valid elements continue to reveal and style normally.
+
+A well-formed unsupported version (a positive integer other than 1) produces
+one warning per drawing file, including when reused on another slide. Its fields
+are treated opaquely. All presentation metadata for that drawing is
+ignored, and the whole drawing is visible immediately in its original appearance
+unless general stylesheet rules match it.
+Malformed version declarations use the element-level fallback.
+
+These fallbacks never save or rewrite the source drawing. An explicitly selected
+stylesheet must still load successfully.
+
+## Rendering and compatibility
+
 Every reveal state keeps the complete drawing's SVG frame, position, and scale.
 Click targets are registered while SVGs are still loading, so navigation does
 not depend on export timing.
@@ -159,6 +182,9 @@ stylesheet application and isolation, CSS cascade behavior, and path-specific
 build failures (including actual Linux permission denial). Role fixtures verify
 shape and text styles, unmatched-role fallback, original links, mixed scenes,
 and forward/backward reveal states.
+Metadata fixtures check element-level and file-wide warnings, original appearance
+and opt-in general CSS, valid metadata alongside malformed values, immediate
+visibility, retained links, file reuse, and unchanged source bytes.
 The fixtures also exercise kebab-case component names, quoted Vue expressions,
 and template-only wrapper components.
 
@@ -171,6 +197,7 @@ docker run --rm --ipc=host figuro-slidev-tests pnpm test errors.spec.ts
 docker run --rm --ipc=host figuro-slidev-tests pnpm test stylesheets.spec.ts
 docker run --rm --ipc=host figuro-slidev-tests pnpm test stylesheet-errors.spec.ts
 docker run --rm --ipc=host figuro-slidev-tests pnpm test roles.spec.ts
+docker run --rm --ipc=host figuro-slidev-tests pnpm test metadata.spec.ts
 ```
 
 `pnpm test` at the repository root runs the Python runner tests and this full

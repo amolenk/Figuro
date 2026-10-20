@@ -1,0 +1,19 @@
+{
+  "type": "excalidraw",
+  "version": 2,
+  "elements": [
+    { "id": "fraction", "type": "text", "x": 100, "y": 50, "width": 180, "height": 25, "text": "Fractional step", "strokeColor": "#123456", "fontSize": 20, "fontFamily": 5, "lineHeight": 1.25, "seed": 401, "customData": { "figuro": { "v": 1, "step": 1.5, "role": "note" } } },
+    { "id": "string-step", "type": "text", "x": 100, "y": 90, "width": 180, "height": 25, "text": "String step", "strokeColor": "#123456", "fontSize": 20, "fontFamily": 5, "lineHeight": 1.25, "seed": 402, "customData": { "figuro": { "v": 1, "step": "2", "role": "note" } } },
+    { "id": "null-step", "type": "text", "x": 100, "y": 130, "width": 180, "height": 25, "text": "Null step", "strokeColor": "#123456", "fontSize": 20, "fontFamily": 5, "lineHeight": 1.25, "seed": 403, "customData": { "figuro": { "v": 1, "step": null, "role": "note" } } },
+    { "id": "unsafe-step", "type": "text", "x": 100, "y": 170, "width": 180, "height": 25, "text": "Unsafe step", "strokeColor": "#123456", "fontSize": 20, "fontFamily": 5, "lineHeight": 1.25, "seed": 404, "customData": { "figuro": { "v": 1, "step": 9007199254740992, "role": "note" } } },
+    { "id": "null-role", "type": "text", "x": 100, "y": 210, "width": 180, "height": 25, "text": "Null role", "strokeColor": "#123456", "fontSize": 20, "fontFamily": 5, "lineHeight": 1.25, "seed": 405, "customData": { "figuro": { "v": 1, "step": 2, "role": null } } },
+    { "id": "null-metadata", "type": "text", "x": 100, "y": 250, "width": 180, "height": 25, "text": "Null metadata", "strokeColor": "#123456", "fontSize": 20, "fontFamily": 5, "lineHeight": 1.25, "seed": 406, "customData": { "figuro": null } },
+    { "id": "array-metadata", "type": "text", "x": 400, "y": 50, "width": 180, "height": 25, "text": "Array metadata", "strokeColor": "#123456", "fontSize": 20, "fontFamily": 5, "lineHeight": 1.25, "seed": 407, "customData": { "figuro": [] } },
+    { "id": "string-metadata", "type": "text", "x": 400, "y": 90, "width": 180, "height": 25, "text": "String metadata", "strokeColor": "#123456", "fontSize": 20, "fontFamily": 5, "lineHeight": 1.25, "seed": 408, "customData": { "figuro": "v1" } },
+    { "id": "missing-version", "type": "text", "x": 400, "y": 130, "width": 180, "height": 25, "text": "Missing version", "strokeColor": "#123456", "fontSize": 20, "fontFamily": 5, "lineHeight": 1.25, "seed": 409, "customData": { "figuro": { "step": 2, "role": "note" } } },
+    { "id": "string-version", "type": "text", "x": 400, "y": 170, "width": 180, "height": 25, "text": "String version", "strokeColor": "#123456", "fontSize": 20, "fontFamily": 5, "lineHeight": 1.25, "seed": 410, "customData": { "figuro": { "v": "2", "step": 2, "role": "note" } } },
+    { "id": "fraction-version", "type": "text", "x": 400, "y": 210, "width": 180, "height": 25, "text": "Fractional version", "strokeColor": "#123456", "fontSize": 20, "fontFamily": 5, "lineHeight": 1.25, "seed": 411, "customData": { "figuro": { "v": 1.5, "step": 2, "role": "note" } } },
+    { "id": "valid", "type": "text", "x": 400, "y": 250, "width": 180, "height": 25, "text": "Valid additive metadata", "strokeColor": "#123456", "fontSize": 20, "fontFamily": 5, "lineHeight": 1.25, "seed": 412, "customData": { "figuro": { "v": 1, "step": 2, "role": "note", "future": { "arbitrary": true } } } }
+  ],
+  "files": {}
+}
