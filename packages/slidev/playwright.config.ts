@@ -11,9 +11,9 @@ export default defineConfig({
     trace: "retain-on-failure",
   },
   projects: [
-    { name: "static", testMatch: "static.spec.ts", use: { baseURL: "http://localhost:3030" } },
-    { name: "built", testMatch: "static.spec.ts", use: { baseURL: "http://localhost:3032/fixture/" } },
-    { name: "consumer", testMatch: "static.spec.ts", use: { baseURL: "http://localhost:3033/fixture/" } },
+    { name: "static", testMatch: ["static.spec.ts", "reveals.spec.ts"], use: { baseURL: "http://localhost:3030" } },
+    { name: "built", testMatch: ["static.spec.ts", "reveals.spec.ts"], use: { baseURL: "http://localhost:3032/fixture/" } },
+    { name: "consumer", testMatch: ["static.spec.ts", "reveals.spec.ts"], use: { baseURL: "http://localhost:3033/fixture/" } },
     { name: "errors", testMatch: "errors.spec.ts", use: { baseURL: "http://localhost:3031" } },
   ],
   webServer: [{

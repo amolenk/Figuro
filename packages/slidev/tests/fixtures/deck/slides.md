@@ -17,3 +17,11 @@ layout: center
 ---
 
 # Next slide
+
+---
+
+<FiguroDiagram src="./drawings/reveals.excalidraw" />
+
+---
+
+# After reveals

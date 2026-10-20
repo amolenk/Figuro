@@ -1,0 +1,59 @@
+{
+  "type": "excalidraw",
+  "version": 2,
+  "source": "https://excalidraw.com",
+  "elements": [
+    {
+      "id": "initial-label", "type": "text",
+      "x": 100, "y": 100, "width": 120, "height": 25,
+      "strokeColor": "#123456", "seed": 101,
+      "text": "Initial text", "fontSize": 20, "fontFamily": 5,
+      "containerId": null, "lineHeight": 1.25
+    },
+    {
+      "id": "initial-box", "type": "rectangle",
+      "x": 80, "y": 150, "width": 160, "height": 90,
+      "strokeColor": "#123456", "backgroundColor": "#aabbcc",
+      "fillStyle": "solid", "roughness": 0, "seed": 102,
+      "customData": { "figuro": { "v": 1, "step": 0 } }
+    },
+    {
+      "id": "last-diamond", "type": "diamond",
+      "x": 600, "y": 300, "width": 140, "height": 100,
+      "strokeColor": "#123456", "backgroundColor": "#ddaaff",
+      "fillStyle": "solid", "roughness": 0, "seed": 103,
+      "customData": { "figuro": { "v": 1, "step": 9 } }
+    },
+    {
+      "id": "shared-ellipse", "type": "ellipse",
+      "x": 300, "y": 150, "width": 160, "height": 90,
+      "strokeColor": "#123456", "backgroundColor": "#aaddbb",
+      "fillStyle": "solid", "roughness": 0, "seed": 104,
+      "customData": { "figuro": { "v": 1, "step": 2 } }
+    },
+    {
+      "id": "shared-label", "type": "text",
+      "x": 300, "y": 100, "width": 140, "height": 25,
+      "strokeColor": "#123456", "seed": 105,
+      "text": "Shared step", "fontSize": 20, "fontFamily": 5,
+      "containerId": null, "lineHeight": 1.25,
+      "customData": { "figuro": { "v": 1, "step": 2 } }
+    },
+    {
+      "id": "role-only-label", "type": "text",
+      "x": 100, "y": 260, "width": 160, "height": 25,
+      "strokeColor": "#123456", "seed": 106,
+      "text": "Omitted step", "fontSize": 20, "fontFamily": 5,
+      "containerId": null, "lineHeight": 1.25,
+      "customData": { "figuro": { "v": 1, "role": "note" } }
+    },
+    {
+      "id": "deleted-box", "type": "rectangle",
+      "x": 900, "y": 100, "width": 100, "height": 100,
+      "isDeleted": true,
+      "customData": { "figuro": { "v": 1, "step": 99 } }
+    }
+  ],
+  "appState": { "viewBackgroundColor": "#fffdf8" },
+  "files": {}
+}
