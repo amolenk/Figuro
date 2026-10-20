@@ -42,3 +42,11 @@ layout: center
 ---
 
 <FiguroDiagram src="./drawings/ordinary.excalidraw" stylesheet="./styles/font.css" />
+
+---
+
+<FiguroDiagram src="./drawings/roles.excalidraw" stylesheet="./styles/roles.css" />
+
+---
+
+<FiguroDiagram src="./drawings/roles.excalidraw" />

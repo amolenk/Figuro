@@ -5,6 +5,7 @@ import { exportToSvg, restoreElements } from "@excalidraw/excalidraw";
 import type { BinaryFiles } from "@excalidraw/excalidraw/types";
 import type { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
 import assetPath from "virtual:figuro-fonts";
+import { prepareRoleStyling } from "../src/role-styling";
 
 const props = defineProps<{
   src: string;
@@ -39,12 +40,13 @@ watch(() => props.drawing, async (_, __, onCleanup) => {
     window.EXCALIDRAW_ASSET_PATH = new URL(assetPath, document.baseURI).href;
     if (!props.drawing) throw new Error("Drawing was not loaded by the Figuro addon.");
     const elements = restoreElements(props.drawing.elements, null).filter(element => !element.isDeleted);
+    const roles = prepareRoleStyling(elements, props.src);
     const stages: string[] = [];
     for (const step of steps.value) {
       const svg = await exportToSvg({
         // Keep the complete scene in every export so its bounds and coordinates
         // are identical. Change only copies' opacity, never the source drawing.
-        elements: elements.map(element => revealStep(element) > step ? { ...element, opacity: 0 } : element),
+        elements: roles.elements.map(element => revealStep(element) > step ? { ...element, opacity: 0 } : element),
         appState: {
           exportBackground: true,
           viewBackgroundColor: props.drawing.appState?.viewBackgroundColor ?? "#ffffff",
@@ -53,6 +55,7 @@ watch(() => props.drawing, async (_, __, onCleanup) => {
         files: props.drawing.files ?? {},
       });
       if (!current) return;
+      roles.apply(svg);
       stages.push(new XMLSerializer().serializeToString(svg));
     }
     markup.value = stages;

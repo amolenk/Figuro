@@ -1,0 +1,37 @@
+[data-figuro-role="service"] [fill="#aabbcc"] {
+  fill: #dd8800;
+}
+
+[data-figuro-role="service"] {
+  opacity: 0.5;
+}
+
+[data-figuro-role="note"] text {
+  fill: #663399;
+}
+
+[data-figuro-role="service"] [fill="#ddaaff"] {
+  fill: #dd8800;
+}
+
+[data-figuro-role="accent"] path {
+  stroke: #008855;
+}
+
+/* A malformed role must not be coerced into a matching string. */
+[data-figuro-role="42"] text {
+  fill: #ff0000;
+}
+
+[data-figuro-role="service"] [fill="#bbccdd"],
+[data-figuro-role="service"] [fill="#ccddee"] {
+  fill: #ff0000;
+}
+
+[data-figuro-role="connector"] path {
+  stroke: #008855;
+}
+
+[data-figuro-role="freehand"] [fill="#334455"] {
+  fill: #663399;
+}

@@ -73,6 +73,41 @@ and fail `slidev build` with both the selected and resolved filesystem paths.
 Stylesheet files are watched during development and their CSS is included in the
 built deck; they do not need to be in `public/`.
 
+## Semantic style roles
+
+Assign a role in Figuro's Presentation inspector, stored as
+`customData.figuro: { "v": 1, "role": "service" }`, then target it in the
+selected presentation stylesheet:
+
+```css
+[data-figuro-role="service"] [fill]:not([fill="none"]) {
+  fill: #dd8800;
+}
+
+[data-figuro-role="note"] text {
+  fill: #663399;
+}
+```
+
+One role hook is present on each rendered element group. Use descendant selectors
+as above to override stroke, fill, or font properties on painted SVG nodes; use
+the group selector for element-wide effects such as opacity or filters. Roles
+are case-sensitive, author-defined strings;
+there is no built-in role palette. Absent, invalid, or unmatched roles keep the
+original appearance unless a general stylesheet rule matches them.
+
+Supported standalone elements are rectangles, diamonds, ellipses, lines, arrows,
+freehand paths, and unbound text, including multiline text and linked elements.
+Hooks remain associated with the same source element in every reveal state.
+The adapter uses temporary links on export copies to identify output, then
+restores original links or removes temporary wrappers before displaying the SVG.
+It does not rely on SVG node order or change the source drawing.
+
+Role hooks are omitted for images, bound text and its container, frames and their
+children, and grouped elements. These cases warn and retain their original role
+appearance; general CSS can still match their rendered output. If an export
+cannot reliably associate supported content, it warns and omits that role hook.
+
 ## Reveal steps
 
 Use Figuro's Presentation inspector to assign reveal steps, stored on each
@@ -121,7 +156,9 @@ colors/background, locally embedded fonts without external network access,
 single-slide navigation, shared reveal steps, numeric gaps, forward/backward
 navigation, stable framing, navigation during export, unchanged source bytes, development error messages,
 stylesheet application and isolation, CSS cascade behavior, and path-specific
-build failures (including actual Linux permission denial).
+build failures (including actual Linux permission denial). Role fixtures verify
+shape and text styles, unmatched-role fallback, original links, mixed scenes,
+and forward/backward reveal states.
 The fixtures also exercise kebab-case component names, quoted Vue expressions,
 and template-only wrapper components.
 
@@ -133,6 +170,7 @@ docker run --rm --ipc=host figuro-slidev-tests pnpm test reveals.spec.ts
 docker run --rm --ipc=host figuro-slidev-tests pnpm test errors.spec.ts
 docker run --rm --ipc=host figuro-slidev-tests pnpm test stylesheets.spec.ts
 docker run --rm --ipc=host figuro-slidev-tests pnpm test stylesheet-errors.spec.ts
+docker run --rm --ipc=host figuro-slidev-tests pnpm test roles.spec.ts
 ```
 
 `pnpm test` at the repository root runs the Python runner tests and this full
