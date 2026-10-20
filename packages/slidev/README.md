@@ -33,6 +33,46 @@ slide. Its original strokes, fills, text, and scene background are retained.
 Fonts are served locally and included in built decks; SVG export also receives
 the scene's `files` map. Rendering reads the source and never saves it.
 
+## Presentation stylesheets
+
+Select an optional stylesheet with a literal path relative to the deck's entry
+Markdown directory:
+
+```md
+<FiguroDiagram
+  src="./drawings/architecture.excalidraw"
+  stylesheet="./styles/presentation.css"
+/>
+```
+
+The CSS styles the exported inline SVG in every reveal state. For example:
+
+```css
+svg text {
+  fill: #663399;
+}
+
+svg [stroke="#123456"] {
+  stroke: #2255aa;
+}
+```
+
+General selectors match the rendered SVG. Only matching properties are changed;
+unspecified strokes, fills, text properties, and background retain their original
+appearance. Normal CSS specificity, source order, and `!important` resolve
+conflicts. Styled diagrams render inline SVG inside an open shadow root, so
+selected stylesheets do not style neighboring diagrams or slide content. Vite
+processes CSS imports and relative asset URLs for development and built decks.
+Font-face declarations are registered at document level for browser compatibility;
+use distinct family names when different diagrams define different fonts.
+Omit `stylesheet` to keep the drawing's original appearance.
+Rendering and styling never write to the source drawing.
+
+Missing or unreadable selected stylesheets produce a development error overlay
+and fail `slidev build` with both the selected and resolved filesystem paths.
+Stylesheet files are watched during development and their CSS is included in the
+built deck; they do not need to be in `public/`.
+
 ## Reveal steps
 
 Use Figuro's Presentation inspector to assign reveal steps, stored on each
@@ -80,7 +120,8 @@ dependencies, and an invalid-input fixture. It checks visible text, original
 colors/background, locally embedded fonts without external network access,
 single-slide navigation, shared reveal steps, numeric gaps, forward/backward
 navigation, stable framing, navigation during export, unchanged source bytes, development error messages,
-and path-specific build failures (including actual Linux permission denial).
+stylesheet application and isolation, CSS cascade behavior, and path-specific
+build failures (including actual Linux permission denial).
 The fixtures also exercise kebab-case component names, quoted Vue expressions,
 and template-only wrapper components.
 
@@ -90,6 +131,8 @@ For a focused iteration after building the image:
 docker run --rm --ipc=host figuro-slidev-tests pnpm test static.spec.ts
 docker run --rm --ipc=host figuro-slidev-tests pnpm test reveals.spec.ts
 docker run --rm --ipc=host figuro-slidev-tests pnpm test errors.spec.ts
+docker run --rm --ipc=host figuro-slidev-tests pnpm test stylesheets.spec.ts
+docker run --rm --ipc=host figuro-slidev-tests pnpm test stylesheet-errors.spec.ts
 ```
 
 `pnpm test` at the repository root runs the Python runner tests and this full

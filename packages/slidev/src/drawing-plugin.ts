@@ -7,6 +7,7 @@ import type { RootNode, TemplateChildNode } from "@vue/compiler-dom";
 import { parse } from "@vue/compiler-sfc";
 
 const prefix = "virtual:figuro-drawing:";
+const stylesheetPrefix = "virtual:figuro-stylesheet:";
 
 /** Slidev's Markdown plugin supplies a Vue template before Vue compilation. */
 export function drawingPlugin(deckRoot: string): Plugin {
@@ -14,9 +15,26 @@ export function drawingPlugin(deckRoot: string): Plugin {
     name: "figuro:drawings",
     enforce: "pre",
     resolveId(id) {
-      if (id.startsWith(prefix)) return `\0${id}`;
+      if (id.startsWith(prefix) || id.startsWith(stylesheetPrefix)) return `\0${id}`;
     },
     async load(id) {
+      if (id.startsWith(`\0${stylesheetPrefix}`)) {
+        // This virtual module exports a JS string, so its id must not end in .css.
+        const src = decodeURIComponent(id.slice(stylesheetPrefix.length + 1, -3));
+        const path = resolve(deckRoot, src);
+        this.addWatchFile(path);
+        try {
+          if (!src || /^(?:[a-z]+:|\/)/i.test(src)) {
+            throw new Error("Expected a local stylesheet path relative to the deck.");
+          }
+          await readFile(path, "utf8");
+          // Vite processes imports and relative asset URLs, but ?inline exports
+          // CSS as a string instead of installing a deck-wide stylesheet.
+          return `export { default } from ${JSON.stringify(path + "?inline")};`;
+        } catch (error) {
+          this.error(`[Figuro] Stylesheet "${src}" (${path}): ${error instanceof Error ? error.message : String(error)}`);
+        }
+      }
       if (!id.startsWith(`\0${prefix}`)) return;
       const src = decodeURIComponent(id.slice(prefix.length + 1));
       const path = resolve(deckRoot, src);
@@ -41,18 +59,27 @@ export function drawingPlugin(deckRoot: string): Plugin {
       const edits: { offset: number; content: string }[] = [];
       const visit = (node: RootNode | TemplateChildNode) => {
         if (node.type === NodeTypes.ELEMENT && ["FiguroDiagram", "figuro-diagram"].includes(node.tag)) {
-          const dynamicSource = node.props.some(prop => prop.type === NodeTypes.DIRECTIVE && prop.name === "bind"
-            && (!prop.arg || prop.arg.type !== NodeTypes.SIMPLE_EXPRESSION || prop.arg.content === "src"));
-          if (dynamicSource) this.error(`[Figuro] ${id}: FiguroDiagram requires a literal src path for build validation.`);
+          for (const attribute of ["src", "stylesheet"]) {
+            const dynamic = node.props.some(prop => prop.type === NodeTypes.DIRECTIVE && prop.name === "bind"
+              && (!prop.arg || prop.arg.type !== NodeTypes.SIMPLE_EXPRESSION || prop.arg.content === attribute));
+            if (dynamic) this.error(`[Figuro] ${id}: FiguroDiagram requires a literal ${attribute} path for build validation.`);
+          }
           const src = node.props.find(prop => prop.type === NodeTypes.ATTRIBUTE && prop.name === "src");
           if (!src || src.type !== NodeTypes.ATTRIBUTE || !src.value) {
             this.error(`[Figuro] ${id}: FiguroDiagram requires a literal src path.`);
           }
           const name = `__figuroDrawing${imports.length}`;
           imports.push(`import ${name} from ${JSON.stringify(prefix + encodeURIComponent(src.value.content))};`);
+          let bindings = ` :drawing="${name}"`;
+          const stylesheet = node.props.find(prop => prop.type === NodeTypes.ATTRIBUTE && prop.name === "stylesheet");
+          if (stylesheet?.type === NodeTypes.ATTRIBUTE) {
+            const cssName = `__figuroStylesheet${imports.length}`;
+            imports.push(`import ${cssName} from ${JSON.stringify(stylesheetPrefix + encodeURIComponent(stylesheet.value?.content ?? "") + ".js")};`);
+            bindings += ` :stylesheet-css="${cssName}"`;
+          }
           const opening = node.loc.source.match(/^<(?:[^"'<>]|"[^"]*"|'[^']*')*>/)![0];
           const end = opening.endsWith("/>") ? opening.length - 2 : opening.length - 1;
-          edits.push({ offset: descriptor.template!.loc.start.offset + node.loc.start.offset + end, content: ` :drawing="${name}"` });
+          edits.push({ offset: descriptor.template!.loc.start.offset + node.loc.start.offset + end, content: bindings });
         }
         if (node.type === NodeTypes.ROOT || node.type === NodeTypes.ELEMENT) node.children.forEach(visit);
       };

@@ -25,3 +25,20 @@ layout: center
 ---
 
 # After reveals
+
+---
+
+<div class="styled-example">
+  <FiguroDiagram src="./drawings/ordinary.excalidraw" stylesheet="./styles/presentation.css" />
+</div>
+<div class="unstyled-example">
+  <FiguroDiagram src="./drawings/ordinary.excalidraw" />
+</div>
+
+---
+
+<FiguroDiagram src="./drawings/reveals.excalidraw" stylesheet="./styles/presentation.css" />
+
+---
+
+<FiguroDiagram src="./drawings/ordinary.excalidraw" stylesheet="./styles/font.css" />

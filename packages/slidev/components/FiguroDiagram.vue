@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
+import FiguroSvg from "./FiguroSvg.vue";
 import { exportToSvg, restoreElements } from "@excalidraw/excalidraw";
 import type { BinaryFiles } from "@excalidraw/excalidraw/types";
 import type { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
@@ -7,6 +8,8 @@ import assetPath from "virtual:figuro-fonts";
 
 const props = defineProps<{
   src: string;
+  stylesheet?: string;
+  stylesheetCss?: string;
   drawing?: {
     elements: ExcalidrawElement[];
     appState?: { viewBackgroundColor?: string };
@@ -67,10 +70,10 @@ watch(() => props.drawing, async (_, __, onCleanup) => {
     <template v-else>
       <v-switch v-if="steps.length > 1" :key="steps.join(',')">
         <template v-for="(step, index) in steps" :key="step" #[index]>
-          <div class="figuro-svg" v-html="markup[index] ?? ''" />
+          <FiguroSvg :markup="markup[index] ?? ''" :stylesheet-css="stylesheetCss" />
         </template>
       </v-switch>
-      <div v-else class="figuro-svg" v-html="markup[0] ?? ''" />
+      <FiguroSvg v-else :markup="markup[0] ?? ''" :stylesheet-css="stylesheetCss" />
       <div v-if="!markup.length" role="status">Loading drawing…</div>
     </template>
   </div>
@@ -80,10 +83,5 @@ watch(() => props.drawing, async (_, __, onCleanup) => {
 .figuro-diagram {
   width: 100%;
   height: 100%;
-}
-.figuro-svg :deep(svg) {
-  display: block;
-  max-width: 100%;
-  max-height: 100%;
 }
 </style>
