@@ -228,6 +228,254 @@ final class RevealStepAcceptanceTests: XCTestCase {
         XCTAssertFalse(editor.buttons["Clear role"].isEnabled)
     }
 
+    func testMixedSelectionShowsDifferentStepsAndRolesIncludingArrows() throws {
+        try FileManager.default.removeItem(at: documentURL)
+        try copyFixture(named: "mixed-selection")
+        let originalContents = try Data(contentsOf: documentURL)
+
+        app = XCUIApplication()
+        app.launch()
+        openDocument()
+        selectAllElements()
+
+        XCTAssertTrue(editor.staticTexts["3 selected"].exists)
+        XCTAssertTrue(editor.staticTexts["Current: Mixed steps"].exists)
+        XCTAssertTrue(editor.staticTexts["Current: Mixed roles"].exists)
+        XCTAssertEqual(revealStepField.value as? String, "")
+        XCTAssertEqual(semanticStyleRoleField.value as? String, "")
+        XCTAssertFalse(editor.buttons["Set step"].isEnabled)
+        XCTAssertFalse(editor.buttons["Set role"].isEnabled)
+        XCTAssertTrue(editor.buttons["Clear step"].isEnabled)
+        XCTAssertTrue(editor.buttons["Clear role"].isEnabled)
+        XCTAssertTrue(staysUnchangedForAutosaveWindow(originalContents))
+    }
+
+    func testMultiSelectionEditsAndIndependentClearsSurviveSaveAndReopen() throws {
+        try FileManager.default.removeItem(at: documentURL)
+        try copyFixture(named: "mixed-selection")
+        let originalElements = try XCTUnwrap(savedElements)
+        app = XCUIApplication()
+        app.launch()
+        openDocument()
+        selectAllElements()
+
+        replaceRevealStep(with: "3")
+        editor.buttons["Set step"].click()
+        saveDocument()
+        XCTAssertTrue(waitForSavedElements { elements in
+            elements.allSatisfy { self.metadata(of: $0)?["step"] as? Int == 3 }
+        })
+        assertSelectionDataPreserved(from: originalElements, preserving: ["role", "futureField"])
+        XCTAssertTrue(editor.staticTexts["Current: Step 3"].exists)
+        XCTAssertTrue(editor.staticTexts["Current: Mixed roles"].exists)
+
+        replaceSemanticStyleRole(with: "shared")
+        editor.buttons["Set role"].click()
+        saveDocument()
+        XCTAssertTrue(waitForSelectionMetadata(step: 3, role: "shared"))
+        assertSelectionDataPreserved(from: originalElements, preserving: ["futureField"])
+
+        let assignedContents = try Data(contentsOf: documentURL)
+        editor.buttons["Set step"].click()
+        editor.buttons["Set role"].click()
+        saveDocument()
+        XCTAssertTrue(staysUnchangedForAutosaveWindow(assignedContents))
+
+        app.typeKey("w", modifierFlags: .command)
+        openDocument()
+        selectAllElements()
+        XCTAssertEqual(revealStepField.value as? String, "3")
+        XCTAssertEqual(semanticStyleRoleField.value as? String, "shared")
+        editor.buttons["Clear step"].click()
+        saveDocument()
+        XCTAssertTrue(waitForSelectionMetadata(step: nil, role: "shared"))
+        XCTAssertTrue(editor.staticTexts["Current: No step · visible initially"].exists)
+        XCTAssertFalse(editor.buttons["Clear step"].isEnabled)
+
+        replaceRevealStep(with: "5")
+        editor.buttons["Set step"].click()
+        editor.buttons["Clear role"].click()
+        saveDocument()
+        XCTAssertTrue(waitForSelectionMetadata(step: 5, role: nil))
+        assertSelectionDataPreserved(from: originalElements, preserving: ["futureField"])
+        XCTAssertFalse(editor.buttons["Clear role"].isEnabled)
+
+        app.typeKey("w", modifierFlags: .command)
+        openDocument()
+        selectAllElements()
+        XCTAssertEqual(revealStepField.value as? String, "5")
+        XCTAssertEqual(semanticStyleRoleField.value as? String, "")
+    }
+
+    func testClearingAllFiguroMetadataPreservesOtherElementData() throws {
+        try FileManager.default.removeItem(at: documentURL)
+        try copyFixture(named: "mixed-selection")
+        let originalElements = try XCTUnwrap(savedElements)
+        app = XCUIApplication()
+        app.launch()
+        openDocument()
+        selectAllElements()
+
+        let clearAll = editor.buttons["Clear Figuro metadata"]
+        XCTAssertTrue(clearAll.waitForExistence(timeout: 5))
+        XCTAssertTrue(clearAll.isEnabled)
+        clearAll.click()
+        saveDocument()
+        XCTAssertTrue(waitForSavedElements { elements in
+            elements.allSatisfy { ($0["customData"] as? [String: Any])?["figuro"] == nil }
+        })
+        assertSelectionDataPreserved(from: originalElements, preserving: [])
+        XCTAssertFalse(clearAll.isEnabled)
+        XCTAssertFalse(editor.buttons["Clear step"].isEnabled)
+        XCTAssertFalse(editor.buttons["Clear role"].isEnabled)
+
+        let clearedContents = try Data(contentsOf: documentURL)
+        app.typeKey("w", modifierFlags: .command)
+        openDocument()
+        selectAllElements()
+        XCTAssertTrue(editor.staticTexts["Current: No step · visible initially"].exists)
+        XCTAssertTrue(editor.staticTexts["Current: No role"].exists)
+        XCTAssertFalse(clearAll.isEnabled)
+        XCTAssertTrue(staysUnchangedForAutosaveWindow(clearedContents))
+    }
+
+    func testArrowCanBeEditedAloneWithoutChangingOtherElements() throws {
+        try FileManager.default.removeItem(at: documentURL)
+        try copyFixture(named: "mixed-selection")
+        let originals = try XCTUnwrap(savedElements)
+        app = XCUIApplication()
+        app.launch()
+        openDocument()
+        // The arrow crosses the fitted scene's center, between the two shapes.
+        focusCanvasCenter()
+        XCTAssertTrue(editor.staticTexts["1 selected"].waitForExistence(timeout: 5))
+        XCTAssertEqual(revealStepField.value as? String, "4")
+        XCTAssertEqual(semanticStyleRoleField.value as? String, "supporting")
+        replaceRevealStep(with: "8")
+        editor.buttons["Set step"].click()
+        replaceSemanticStyleRole(with: "connection")
+        editor.buttons["Set role"].click()
+        saveDocument()
+        XCTAssertTrue(waitForSavedElements { elements in
+            guard let arrow = elements.first(where: { $0["id"] as? String == "mixed-arrow" }) else { return false }
+            return self.metadata(of: arrow)?["step"] as? Int == 8 && self.metadata(of: arrow)?["role"] as? String == "connection"
+        })
+        assertSelectionDataPreserved(from: originals, preserving: ["futureField"])
+        for original in originals where original["id"] as? String != "mixed-arrow" {
+            let saved = savedElements?.first(where: { $0["id"] as? String == original["id"] as? String })
+            XCTAssertEqual(saved.map { $0 as NSDictionary }, original as NSDictionary)
+        }
+
+        app.typeKey("w", modifierFlags: .command)
+        openDocument()
+        focusCanvasCenter()
+        XCTAssertTrue(editor.staticTexts["1 selected"].waitForExistence(timeout: 5))
+        XCTAssertEqual(revealStepField.value as? String, "8")
+        XCTAssertEqual(semanticStyleRoleField.value as? String, "connection")
+        editor.buttons["Clear Figuro metadata"].click()
+        saveDocument()
+        XCTAssertTrue(waitForSavedElements { elements in
+            guard let arrow = elements.first(where: { $0["id"] as? String == "mixed-arrow" }) else { return false }
+            return (arrow["customData"] as? [String: Any])?["figuro"] == nil
+        })
+        assertSelectionDataPreserved(from: originals, preserving: [])
+    }
+
+    func testSelectionContainingOpaqueMetadataKeepsAllMetadataUnchanged() throws {
+        try FileManager.default.removeItem(at: documentURL)
+        try copyFixture(named: "mixed-selection")
+        var document = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: documentURL)) as? [String: Any])
+        var elements = try XCTUnwrap(document["elements"] as? [[String: Any]])
+        elements[1]["customData"] = ["owner": "arrow-owner", "figuro": ["v": 2, "step": 4, "role": "future-role", "futureField": ["keep": true]]]
+        document["elements"] = elements
+        try JSONSerialization.data(withJSONObject: document).write(to: documentURL)
+        let originalContents = try Data(contentsOf: documentURL)
+        app = XCUIApplication()
+        app.launch()
+        openDocument()
+        selectAllElements()
+        XCTAssertTrue(editor.staticTexts["Current: Mixed steps"].exists)
+        XCTAssertTrue(editor.staticTexts["Current: Mixed roles"].exists)
+        XCTAssertFalse(revealStepField.isEnabled)
+        XCTAssertFalse(semanticStyleRoleField.isEnabled)
+        for name in ["Set step", "Set role", "Clear step", "Clear role", "Clear Figuro metadata"] {
+            XCTAssertFalse(editor.buttons[name].isEnabled)
+        }
+        saveDocument()
+        XCTAssertTrue(staysUnchangedForAutosaveWindow(originalContents))
+        moveSelectedElement()
+        saveDocument()
+        XCTAssertTrue(waitForSavedElements { saved in
+            saved.allSatisfy { element in
+                guard let original = elements.first(where: { $0["id"] as? String == element["id"] as? String }) else { return false }
+                return element["x"] as? Double != original["x"] as? Double
+            }
+        })
+        for original in elements {
+            let saved = savedElements?.first(where: { $0["id"] as? String == original["id"] as? String })
+            XCTAssertEqual(saved?["customData"] as? NSDictionary, original["customData"] as? NSDictionary)
+        }
+    }
+
+    private func metadata(of element: [String: Any]) -> [String: Any]? {
+        (element["customData"] as? [String: Any])?["figuro"] as? [String: Any]
+    }
+
+    private var savedElements: [[String: Any]]? {
+        guard let data = try? Data(contentsOf: documentURL),
+              let document = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+        else { return nil }
+        return document["elements"] as? [[String: Any]]
+    }
+
+    private func waitForSavedElements(_ matches: ([[String: Any]]) -> Bool) -> Bool {
+        let deadline = Date().addingTimeInterval(10)
+        repeat {
+            if let elements = savedElements, elements.count == 3, matches(elements) { return true }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        } while Date() < deadline
+        return false
+    }
+
+    private func waitForSelectionMetadata(step: Int?, role: String?) -> Bool {
+        waitForSavedElements { elements in
+            elements.allSatisfy {
+                let metadata = self.metadata(of: $0)
+                return metadata?["step"] as? Int == step && metadata?["role"] as? String == role
+            }
+        }
+    }
+
+    private func assertSelectionDataPreserved(
+        from originals: [[String: Any]], preserving metadataFields: [String],
+        file: StaticString = #filePath, line: UInt = #line
+    ) {
+        guard let saved = savedElements else {
+            XCTFail("Missing saved elements", file: file, line: line)
+            return
+        }
+        XCTAssertEqual(saved.count, originals.count, file: file, line: line)
+        for original in originals {
+            guard let element = saved.first(where: { $0["id"] as? String == original["id"] as? String })
+            else {
+                XCTFail("Missing original element", file: file, line: line)
+                continue
+            }
+            for (key, value) in original where !["customData", "version", "versionNonce", "updated"].contains(key) {
+                XCTAssertEqual(element[key] as? NSObject, value as? NSObject, "Changed \(key)", file: file, line: line)
+            }
+            var originalCustomData = original["customData"] as? [String: Any] ?? [:]
+            var savedCustomData = element["customData"] as? [String: Any] ?? [:]
+            originalCustomData.removeValue(forKey: "figuro")
+            savedCustomData.removeValue(forKey: "figuro")
+            XCTAssertEqual(savedCustomData as NSDictionary, originalCustomData as NSDictionary, file: file, line: line)
+            for field in metadataFields {
+                XCTAssertEqual(metadata(of: element)?[field] as? NSObject, metadata(of: original)?[field] as? NSObject,
+                               "Changed metadata \(field)", file: file, line: line)
+            }
+        }
+    }
+
     private var semanticStyleRoleField: XCUIElement {
         editor.textFields["Semantic style role"]
     }
@@ -273,21 +521,28 @@ final class RevealStepAcceptanceTests: XCTestCase {
         XCTAssertTrue(
             editor.waitForExistence(timeout: 10),
             "Opened fixture window was not found: \(documentURL.lastPathComponent)")
-        XCTAssertTrue(
-            editor.staticTexts["Presentation"].waitForExistence(timeout: 10))
+        XCTAssertTrue(editor.staticTexts["Presentation"].waitForExistence(timeout: 10))
     }
 
     private func selectOnlyElement() {
+        selectAllElements()
+    }
+
+    private func selectAllElements() {
+        focusCanvasCenter()
+        // Select All is independent of the zoom
+        // and pan applied while the document window settles or joins a tab group.
+        app.typeKey("a", modifierFlags: .command)
+        XCTAssertTrue(editor.buttons["Set step"].waitForExistence(timeout: 5))
+    }
+
+    private func focusCanvasCenter() {
         XCTAssertTrue(editor.waitForExistence(timeout: 10))
         let inspectorWidth = min(max(editor.frame.width * 0.23, 240), 320)
         let canvasCenter = (editor.frame.width - inspectorWidth) / 2
         editor.coordinate(
             withNormalizedOffset: CGVector(dx: canvasCenter / editor.frame.width, dy: 0.5)
         ).click()
-        // The fixture has one element. Select All is independent of the zoom
-        // and pan applied while the document window settles or joins a tab group.
-        app.typeKey("a", modifierFlags: .command)
-        XCTAssertTrue(editor.buttons["Set step"].waitForExistence(timeout: 5))
     }
 
     private func switchToolsAndPan() {

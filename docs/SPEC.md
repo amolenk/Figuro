@@ -1,202 +1,127 @@
-# Figuro
+# Figuro user guide
 
-A native macOS Excalidraw editor, with optional presentation tooling for Reveal.js.
+Figuro is a native macOS document application for local `.excalidraw` drawings.
+The drawing is edited by Excalidraw inside the app, with its original appearance.
+Presentation metadata is optional.
 
-## 1. Principles
+The canonical specification and delivery plan are in
+[Implement Figuro presentation metadata and Slidev integration (#16)](https://github.com/amolenk/Figuro/issues/16).
+This guide describes the native editor available today and the agreed Slidev
+contract. Build and test instructions are in the [project overview](../README.md).
 
-**Excalidraw is the editor. macOS provides the application experience.**
-Additional capabilities build on top of the Excalidraw document without compromising compatibility.
+## Open, edit, and save a drawing
 
-**The Excalidraw file describes the diagram.**
-Presentation metadata describes its storytelling behaviour, while the presentation theme determines its presentation appearance.
+- Open an `.excalidraw` file from Finder or **File → Open…**. Use **File → New**
+  to start a drawing.
+- Use Excalidraw's drawing, selection, text, image, and library tools on the canvas.
+  The editor and its fonts work offline.
+- Save with **File → Save** or **⌘S**. The native document app also autosaves
+  genuine edits in place and supports macOS Versions and revert.
+- Export the drawing with **File → Export → SVG…** or **PNG…**. Export uses the
+  drawing's appearance, without a presentation stylesheet.
 
-**A `.excalidraw` document without presentation metadata behaves exactly like a normal Excalidraw document.**
-This is a hard constraint, not an aspiration.
+Opening a drawing, changing its selection, panning, zooming, and switching tools
+do not change the source file. Typing in the Presentation inspector also leaves
+the drawing unchanged until you apply an edit.
 
-## 2. Positioning
+## Use the Presentation inspector
 
-Figuro is primarily a native macOS Excalidraw application, not a presentation application.
-It must be fully useful to someone who never touches the presentation features.
+The **Presentation** inspector stays beside the canvas. It summarizes the current
+selection and edits reveal timing and semantic style roles.
 
-In scope:
+### Select elements
 
-- Opening `.excalidraw` files from Finder.
-- Creating, editing and saving local Excalidraw diagrams.
-- Standard macOS document workflows.
-- Exporting to SVG and PNG.
-- Optionally enriching diagrams with presentation metadata.
-- Using those same diagrams directly in Reveal.js presentations.
+Use Excalidraw's selection tool to click a shape, text, or arrow. Shift-click to
+extend a selection, drag a selection box around several elements, or focus the
+canvas and use **⌘A** to select all. Arrows can be edited alone or together with
+other drawing elements.
 
-Explicitly out of scope:
+The inspector displays the selection count. For each field it shows either a
+shared current value or **Mixed steps** / **Mixed roles**. A mixed field has an
+empty input with a **Mixed** placeholder, so it does not suggest one element's
+value applies to the whole selection. An omitted step and an explicit step 0
+are displayed distinctly even though both are initially visible.
 
-- A folder/library browser. Finder is the browser.
-- Git awareness of any kind.
-- Real-time collaboration.
-- Excalidraw's AI features.
+### Assign a reveal step
 
-## 3. Architecture
+Enter a non-negative whole number in **Reveal step**, then click **Set step**.
+The step is applied to every selected element.
 
-Excalidraw is a React component, so it must run in a web view.
-Figuro wraps it in a genuine AppKit document application rather than shipping a browser.
+- No step, or step **0**, means the element is visible when the slide first appears.
+- Elements sharing a positive step appear together.
+- Positive steps reveal in ascending order. Gaps such as 1, 3, and 8 do not add
+  empty clicks.
 
-| Component | Path | Role |
-| --- | --- | --- |
-| macOS app | `apps/macos` | Swift/SwiftUI, `NSDocument`-based. Owns the document lifecycle, menus, windows, file I/O. |
-| Editor host | `packages/editor-host` | React app bundling `@excalidraw/excalidraw`. Loaded into a `WKWebView` from the app bundle. Fully offline. |
-| Schema | `packages/figuro-schema` | Presentation metadata types and validation. Shared by app and plugin. |
-| Theme | `packages/figuro-theme` | Versioned standalone theme format and resolver. Shared by app and plugin. |
-| Reveal plugin | `packages/reveal-figuro` | Renders Figuro diagrams inside Reveal.js decks. |
+Negative, fractional, empty, and unrepresentable integer inputs cannot be applied.
+Click **Clear step** to remove only the step from every selected element; roles
+and additional v1 metadata remain intact.
 
-JavaScript packages live in a pnpm workspace.
-The Xcode project is generated by XcodeGen from `apps/macos/project.yml`; the resulting `.xcodeproj` is not committed.
+### Assign a semantic style role
 
-### Why the schema and theme are separate packages
+Enter a label such as `primary`, `supporting`, or `connection` in **Semantic style
+role**, then click **Set role**. The role is applied to every selected element.
+Role labels are free-form and are matched by a presentation stylesheet.
 
-Preview mode inside the app must be indistinguishable from the real deck.
-That is only achievable if both consume the same schema and the same theme resolver.
-Duplicating either would guarantee silent divergence.
+Setting a role does not change the drawing's colors, strokes, text, or geometry
+in Figuro. Click **Clear role** to remove only the role; reveal steps and
+additional v1 metadata remain intact.
 
-## 4. Document model
+### Clear all Figuro metadata
 
-One window per document, backed by `NSDocument`.
-This gives the proxy icon, Versions, autosave, revert, and correct Finder integration for free.
+Click **Clear Figuro metadata** to remove the selected elements' entire Figuro
+annotation, including step, role, schema version, and additional v1 fields.
+Custom data owned by other tools is retained. Elements without Figuro metadata
+are left unchanged.
 
-### Saving
+Clear buttons are enabled when at least one selected element has the corresponding
+metadata. Reapplying the same value, or clearing an absent field, does not create
+a document edit.
 
-Autosave in place, with the macOS Versions browser.
+### Save and compatibility
 
-Autosave triggers **only** on genuine scene changes: elements, app-level scene state such as `viewBackgroundColor` and `gridSize`, and files.
-View-only state - scroll position, zoom, selection, active tool, panel visibility - must never mark the document dirty.
-Merely opening a file and panning it must leave the bytes on disk untouched.
+Save normally, then reopen the `.excalidraw` file to continue editing. Figuro
+stores annotations on each element:
 
-### Serialization
-
-Output uses stable key ordering and consistent formatting so that diffs are readable.
-
-Excalidraw's own churn fields - `version`, `versionNonce`, `updated` - pass through **untouched**.
-Diffs will therefore still show version churn on edited elements.
-This is accepted deliberately: exact upstream fidelity outweighs quieter diffs.
-
-## 5. Modes
-
-### Edit (default)
-
-The normal Excalidraw editing experience.
-Renders the file's true styling, never the theme, so the editor never shows something the file does not say.
-No presentation metadata is required or created.
-
-### Presentation
-
-Exposes presentation metadata for the current selection through a persistent inspector beside the drawing in the editor host.
-Excalidraw's own UI is never modified, which keeps it upgradeable.
-
-The inspector edits two things:
-
-- **Role** - a semantic tag, drawn from the active theme's declared vocabulary.
-- **Step** - an integer reveal index.
-
-### Preview
-
-Embeds a real Reveal.js instance running the actual `reveal-figuro` plugin against the current document.
-The preview *is* the deck. Any theme or step bug shows up here first.
-
-## 6. Presentation metadata
-
-Metadata is stored in `element.customData` inside the `.excalidraw` file.
-Excalidraw officially supports `customData` and preserves it across round-trips, so a single file remains the source of truth and there is no sidecar to drift.
-
-```jsonc
+```json
 {
-  "type": "excalidraw",
-  "elements": [
-    {
-      "id": "abc123",
-      "type": "rectangle",
-      "customData": {
-        "figuro": {
-          "v": 1,
-          "role": "service",
-          "step": 2
-        }
-      }
-    }
-  ]
-}
-```
-
-Rules:
-
-- Every field is optional. An element with no `figuro` key is untouched by Figuro.
-- `step` defaults to `0`. Step 0 is always visible.
-- Steps advance monotonically and map one-to-one onto Reveal.js fragments.
-- An unknown `role` degrades gracefully to the element's raw Excalidraw styling.
-- `v` is a schema version to allow forward-compatible extension.
-
-The schema is deliberately shaped to allow later addition of richer actions - highlight, dim, exit, pan/zoom - and of frame addressing, without invalidating existing files.
-
-## 7. Semantic styling and themes
-
-An element carries a **role**; the theme maps roles to visual style.
-Raw Excalidraw styling is the fallback wherever no role applies.
-This keeps diagrams re-themeable, which direct style overrides would not.
-
-The role vocabulary is open and declared by the theme.
-The inspector offers only the roles the active theme defines, with swatches.
-
-A theme is a standalone versioned file, consumed identically by the app and by the Reveal plugin.
-
-```jsonc
-{
-  "figuroTheme": 1,
-  "name": "corporate",
-  "roles": {
-    "service":  { "strokeColor": "#1e6fff", "backgroundColor": "#e7f0ff", "fillStyle": "solid" },
-    "database": { "strokeColor": "#7a3fbd", "backgroundColor": "#f2e9fb" },
-    "muted":    { "strokeColor": "#9aa0a6", "opacity": 40 }
+  "customData": {
+    "anotherTool": { "keep": true },
+    "figuro": { "v": 1, "step": 3, "role": "primary" }
   }
 }
 ```
 
-Themes never modify the source file. They are applied at render time only.
+The version field `v: 1` is required on an annotation; `step` and `role` are
+optional. A drawing without annotations is an ordinary Excalidraw document.
+Step and role edits preserve unrelated `customData` and additional fields in
+recognized v1 metadata.
 
-## 8. Reveal.js plugin
+Metadata that does not declare version 1 is preserved opaquely. If any selected
+element contains such metadata, the inspector explains this and disables metadata
+edits for the entire selection. Select supported elements separately to edit
+them. Invalid step or role values inside recognized v1 metadata are labeled as
+invalid and can be corrected or cleared. Ordinary drawing edits and saving still
+preserve opaque metadata.
+Other tools preserve annotations only if they retain Excalidraw `customData`
+when loading and saving.
 
-The plugin renders diagrams at presentation time by reading the `.excalidraw` file directly and calling Excalidraw's `exportToSvg`, with the theme applied and step indices wired to Reveal fragments.
+## Slidev integration contract
 
-There is no build step and no generated artifact: editing the diagram updates the deck.
-The cost is shipping Excalidraw's renderer into the deck bundle, which is accepted in exchange for a single source of truth.
+The `@figuro/slidev` addon is planned and is not yet shipped. Its agreed interface
+is a `FiguroDiagram` component with required `src` and optional `stylesheet`
+paths, resolved relative to the deck. One drawing is one slide, including when
+the drawing contains Excalidraw frames.
 
-Authoring is declarative:
+The addon will use normal Slidev forward/backward navigation for reveal states,
+keep the SVG frame stable, and continue to the next slide after the final reveal.
+Without a stylesheet, drawings retain their original appearance. CSS applies
+only to rendered presentation output, overrides matching properties, and never
+edits the source drawing. Reliable semantic role hooks use
+`[data-figuro-role="primary"]` selectors.
 
-```html
-<section>
-  <div class="figuro"
-       data-src="diagrams/architecture.excalidraw"
-       data-theme="themes/corporate.json"></div>
-</section>
-```
-
-One file is one diagram is one slide.
-Multi-slide sequences are multiple files.
-
-## 9. Excalidraw feature scope
-
-Included: Mermaid import, local `.excalidrawlib` libraries, image embedding, SVG export, PNG export.
-
-Excluded: collaboration, AI features, anything requiring network access at runtime.
-
-## 10. Distribution
-
-Local development build only.
-Ad-hoc code signing, no Apple Developer account, App Sandbox disabled.
-Nothing in the design forecloses sandboxing or notarization later, but neither is implemented.
-
-## 11. Delivery phases
-
-**Phase 1 - the editor.** No presentation features whatsoever.
-Open, create, edit, save, export. Correct document lifecycle, undo, dirty state, Versions.
-This phase carries the real technical risk and must be solid before anything is layered on top.
-
-**Phase 2 - metadata.** Schema package, theme package, Presentation mode inspector.
-
-**Phase 3 - the deck.** Reveal.js plugin, then Preview mode embedding it.
+Initial compatibility is Slidev 53.x and Excalidraw 0.18.1, supporting ordinary
+drawings and Figuro metadata v1 independently of the app release. Complex scenes
+have explicit rendering, reveal, and role-styling boundaries in
+[#16](https://github.com/amolenk/Figuro/issues/16), including images, bound text,
+frames/clipping, and grouped content. Assigning metadata in the editor does not
+promise role styling for every complex structure in the renderer.

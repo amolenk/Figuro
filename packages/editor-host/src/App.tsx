@@ -113,9 +113,21 @@ function hasSemanticStyleRole(element: ExcalidrawElement | null): boolean {
   return state.kind === "v1" && "role" in state.metadata;
 }
 
+function selectionLabel(
+  elements: readonly ExcalidrawElement[],
+  labelOf: (element: ExcalidrawElement | null) => string,
+  mixedLabel: string,
+): string {
+  const first = elements[0];
+  if (!first) return "";
+  const label = labelOf(first);
+  return elements.every((element) => labelOf(element) === label) ? label : mixedLabel;
+}
+
 type PresentationEdit =
   | { field: "step"; value: number | null }
-  | { field: "role"; value: string | null };
+  | { field: "role"; value: string | null }
+  | { field: "all"; value: null };
 
 function withPresentationEdit(
   element: ExcalidrawElement,
@@ -126,6 +138,7 @@ function withPresentationEdit(
   if (existing.kind === "opaque") return null;
   if (edit.value === null && existing.kind === "unannotated") return element;
   if (
+    edit.field !== "all" &&
     existing.kind === "v1" &&
     ((edit.value === null && !(edit.field in existing.metadata)) ||
       (edit.value !== null && existing.metadata[edit.field] === edit.value))
@@ -133,16 +146,20 @@ function withPresentationEdit(
     return element;
   }
 
-  const metadata: FiguroMetadataV1 =
-    existing.kind === "v1" ? { ...existing.metadata } : { v: 1 };
-  if (edit.value === null) delete metadata[edit.field];
-  else if (edit.field === "step") metadata.step = edit.value;
-  else metadata.role = edit.value;
-
-  if (Object.keys(metadata).every((key) => key === "v")) {
+  if (edit.field === "all") {
     delete customData.figuro;
   } else {
-    customData.figuro = metadata;
+    const metadata: FiguroMetadataV1 =
+      existing.kind === "v1" ? { ...existing.metadata } : { v: 1 };
+    if (edit.value === null) delete metadata[edit.field];
+    else if (edit.field === "step") metadata.step = edit.value;
+    else metadata.role = edit.value;
+
+    if (Object.keys(metadata).every((key) => key === "v")) {
+      delete customData.figuro;
+    } else {
+      customData.figuro = metadata;
+    }
   }
 
   return newElementWith(
@@ -195,13 +212,12 @@ function serialize(api: ExcalidrawImperativeAPI): string {
 
 export default function App() {
   const [api, setApi] = useState<ExcalidrawImperativeAPI | null>(null);
-  const [selectedElement, setSelectedElement] = useState<ExcalidrawElement | null>(null);
-  const [selectionCount, setSelectionCount] = useState(0);
+  const [selectedElements, setSelectedElements] = useState<readonly ExcalidrawElement[]>([]);
   const [stepDraft, setStepDraft] = useState("");
   const [roleDraft, setRoleDraft] = useState("");
-  const selectedElementId = useRef<string | null>(null);
-  const selectedRevealStep = useRef<number | null>(null);
-  const selectedSemanticStyleRole = useRef<string | null>(null);
+  const selectedElementIds = useRef("");
+  const selectedRevealStep = useRef("");
+  const selectedSemanticStyleRole = useRef("");
   const lastSignature = useRef<SceneSignature | null>(null);
   const sceneInteraction = useRef<SceneInteraction | null>(null);
   const pendingContent = useRef<PendingContent | null>(null);
@@ -243,27 +259,34 @@ export default function App() {
     const selectedElements = api
       .getSceneElements()
       .filter((element) => selectedIds[element.id]);
-    const singleSelection = selectedElements.length === 1 ? selectedElements[0] : null;
-    const singleSelectionId = singleSelection?.id ?? null;
-    const singleSelectionStep = revealStepOf(singleSelection ?? null);
-    const singleSelectionRole = semanticStyleRoleOf(singleSelection ?? null);
-    setSelectionCount(selectedElements.length);
-    setSelectedElement(singleSelection ?? null);
+    const selectionIds = JSON.stringify(selectedElements.map((element) => element.id));
+    const stepLabel = selectionLabel(selectedElements, revealStepLabel, "Mixed steps");
+    const roleLabel = selectionLabel(selectedElements, semanticStyleRoleLabel, "Mixed roles");
+    setSelectedElements((current) =>
+      current.length === selectedElements.length &&
+      current.every((element, index) => element === selectedElements[index])
+        ? current
+        : selectedElements,
+    );
     if (
-      singleSelectionId !== selectedElementId.current ||
-      singleSelectionRole !== selectedSemanticStyleRole.current
+      selectionIds !== selectedElementIds.current ||
+      roleLabel !== selectedSemanticStyleRole.current
     ) {
-      selectedSemanticStyleRole.current = singleSelectionRole;
-      setRoleDraft(singleSelectionRole ?? "");
+      selectedSemanticStyleRole.current = roleLabel;
+      setRoleDraft(
+        roleLabel === "Mixed roles" ? "" : semanticStyleRoleOf(selectedElements[0] ?? null) ?? "",
+      );
     }
     if (
-      singleSelectionId !== selectedElementId.current ||
-      singleSelectionStep !== selectedRevealStep.current
+      selectionIds !== selectedElementIds.current ||
+      stepLabel !== selectedRevealStep.current
     ) {
-      selectedElementId.current = singleSelectionId;
-      selectedRevealStep.current = singleSelectionStep;
-      setStepDraft(singleSelectionStep?.toString() ?? "");
+      selectedRevealStep.current = stepLabel;
+      setStepDraft(
+        stepLabel === "Mixed steps" ? "" : revealStepOf(selectedElements[0] ?? null)?.toString() ?? "",
+      );
     }
+    selectedElementIds.current = selectionIds;
 
     const current = signature(api);
     if (!userHasEdited.current && pendingContent.current) {
@@ -481,10 +504,13 @@ export default function App() {
 
   const applyPresentationEdit = useCallback(
     (edit: PresentationEdit) => {
-      if (!api || !selectedElement) return;
+      if (!api) return;
+      const selectedIds = api.getAppState().selectedElementIds;
+      const selection = api.getSceneElements().filter((element) => selectedIds[element.id]);
+      if (selection.length === 0 || !selection.every(isEditableFiguroMetadata)) return;
       let changed = false;
       const elements = api.getSceneElementsIncludingDeleted().map((element) => {
-        if (element.id !== selectedElement.id) return element;
+        if (element.isDeleted || !selectedIds[element.id]) return element;
         const updated = withPresentationEdit(element, edit);
         if (updated && updated !== element) changed = true;
         return updated ?? element;
@@ -493,7 +519,7 @@ export default function App() {
       noteUserEdit();
       api.updateScene({ elements, captureUpdate: "IMMEDIATELY" });
     },
-    [api, noteUserEdit, selectedElement],
+    [api, noteUserEdit],
   );
 
   /**
@@ -591,14 +617,16 @@ export default function App() {
   }, [api, fitToViewport]);
 
   const parsedStepDraft = Number(stepDraft);
+  const selectionCount = selectedElements.length;
+  const stepLabel = selectionLabel(selectedElements, revealStepLabel, "Mixed steps");
+  const roleLabel = selectionLabel(selectedElements, semanticStyleRoleLabel, "Mixed roles");
+  const canEditSelection = selectionCount > 0 && selectedElements.every(isEditableFiguroMetadata);
   const canSetStep =
-    selectedElement !== null &&
-    isEditableFiguroMetadata(selectedElement) &&
+    canEditSelection &&
     stepDraft.trim() !== "" &&
     isNonNegativeInteger(parsedStepDraft);
   const canSetRole =
-    selectedElement !== null &&
-    isEditableFiguroMetadata(selectedElement) &&
+    canEditSelection &&
     roleDraft.trim() !== "";
 
   return (
@@ -652,23 +680,20 @@ export default function App() {
             <div className="inspector-eyebrow">Figuro metadata</div>
             <h1>Presentation</h1>
           </div>
-          {selectionCount === 1 && <span className="selection-count">1 selected</span>}
+          {selectionCount > 0 && <span className="selection-count">{selectionCount} selected</span>}
         </header>
 
         {selectionCount === 0 ? (
           <p className="inspector-empty">
-            Select one element in the drawing to edit its reveal step and semantic style role.
-          </p>
-        ) : selectionCount > 1 ? (
-          <p className="inspector-empty">
-            {selectionCount} elements selected. Select one element to edit its reveal step and
-            semantic style role.
+            Select elements in the drawing to edit their reveal step and semantic style role.
           </p>
         ) : (
           <>
             <section className="inspector-control">
               <label htmlFor="reveal-step-input">Reveal step</label>
-              <p className="step-current">Current: {revealStepLabel(selectedElement)}</p>
+              <p className="step-current">
+                Current: {stepLabel}
+              </p>
               <div className="step-form">
                 <input
                   id="reveal-step-input"
@@ -677,9 +702,9 @@ export default function App() {
                   min="0"
                   step="1"
                   inputMode="numeric"
-                  placeholder="e.g. 2"
+                  placeholder={stepLabel === "Mixed steps" ? "Mixed" : "e.g. 2"}
                   value={stepDraft}
-                  disabled={!selectedElement || !isEditableFiguroMetadata(selectedElement)}
+                  disabled={!canEditSelection}
                   onChange={(event) => setStepDraft(event.currentTarget.value)}
                 />
                 <button
@@ -697,9 +722,7 @@ export default function App() {
                 type="button"
                 onClick={() => applyPresentationEdit({ field: "step", value: null })}
                 disabled={
-                  !selectedElement ||
-                  !isEditableFiguroMetadata(selectedElement) ||
-                  !hasRevealStep(selectedElement)
+                  !canEditSelection || !selectedElements.some(hasRevealStep)
                 }
               >
                 Clear step
@@ -710,7 +733,9 @@ export default function App() {
             </section>
             <section className="inspector-control">
               <label htmlFor="semantic-style-role-input">Semantic style role</label>
-              <p className="role-current">Current: {semanticStyleRoleLabel(selectedElement)}</p>
+              <p className="role-current">
+                Current: {roleLabel}
+              </p>
               <div className="role-form">
                 <input
                   id="semantic-style-role-input"
@@ -719,9 +744,9 @@ export default function App() {
                   autoCapitalize="none"
                   autoCorrect="off"
                   spellCheck={false}
-                  placeholder="e.g. primary"
+                  placeholder={roleLabel === "Mixed roles" ? "Mixed" : "e.g. primary"}
                   value={roleDraft}
-                  disabled={!selectedElement || !isEditableFiguroMetadata(selectedElement)}
+                  disabled={!canEditSelection}
                   onChange={(event) => setRoleDraft(event.currentTarget.value)}
                 />
                 <button
@@ -739,9 +764,7 @@ export default function App() {
                 type="button"
                 onClick={() => applyPresentationEdit({ field: "role", value: null })}
                 disabled={
-                  !selectedElement ||
-                  !isEditableFiguroMetadata(selectedElement) ||
-                  !hasSemanticStyleRole(selectedElement)
+                  !canEditSelection || !selectedElements.some(hasSemanticStyleRole)
                 }
               >
                 Clear role
@@ -751,10 +774,28 @@ export default function App() {
                 same in Figuro.
               </p>
             </section>
-            {selectedElement && !isEditableFiguroMetadata(selectedElement) && (
+            <section className="inspector-control">
+              <button
+                className="clear-metadata"
+                type="button"
+                onClick={() => applyPresentationEdit({ field: "all", value: null })}
+                disabled={
+                  !canEditSelection ||
+                  !selectedElements.some((element) => element.customData?.figuro !== undefined)
+                }
+              >
+                Clear Figuro metadata
+              </button>
+              <p className="inspector-help">
+                Remove all Figuro metadata from the selection, including additional v1 fields.
+                Other custom data is preserved.
+              </p>
+            </section>
+            {!canEditSelection && (
               <p className="inspector-warning" role="status">
-                This element uses an unsupported Figuro metadata version. Its metadata is kept
-                unchanged.
+                {selectionCount === 1
+                  ? "This element uses an unsupported Figuro metadata version. Its metadata is kept unchanged."
+                  : "This selection includes an unsupported Figuro metadata version. Metadata is kept unchanged for the entire selection."}
               </p>
             )}
           </>

@@ -122,13 +122,15 @@
 .step-form button:disabled,
 .role-form button:disabled,
 .clear-step:disabled,
-.clear-role:disabled {
+.clear-role:disabled,
+.clear-metadata:disabled {
   cursor: default;
   opacity: 0.45;
 }
 
 .clear-step,
-.clear-role {
+.clear-role,
+.clear-metadata {
   min-height: 31px;
   margin-top: 9px;
   padding: 0 9px;

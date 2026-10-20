@@ -1,16 +1,19 @@
 # Figuro
 
-A native macOS Excalidraw editor, with optional presentation tooling for Reveal.js.
+A native macOS Excalidraw editor, with optional presentation metadata for Slidev.
 
-See [docs/SPEC.md](docs/SPEC.md) for the design.
+See the [Figuro user guide](docs/SPEC.md) for drawing and Presentation inspector
+workflows. The current specification and delivery plan live in
+[GitHub issue #16](https://github.com/amolenk/Figuro/issues/16).
 
 ## Status
 
-Phase 1 editor work is in progress, and initial Phase 2 metadata authoring has begun.
-The persistent Presentation inspector can independently set or clear a reveal step
-and semantic style role on one selected element. Its v1 metadata is stored in
-`customData.figuro` and survives save/reopen. Roles are labels for presentation
-stylesheets; editing them keeps the drawing's appearance in Figuro unchanged.
+The native editor and Presentation inspector support single and multiple selected
+elements, including arrows. The inspector shows mixed steps and roles, applies
+edits to the whole selection, and can clear step, role, or all Figuro metadata.
+Its v1 metadata is stored in `customData.figuro` and survives save/reopen while
+preserving other custom data. Roles are labels for presentation stylesheets;
+editing them keeps the drawing's appearance in Figuro unchanged.
 
 Working and verified end to end through real input events:
 
@@ -24,6 +27,9 @@ Working and verified end to end through real input events:
 Not done yet:
 
 - Undo and Redo are handled inside Excalidraw and have no native menu items. A native Edit menu entry would capture Cmd-Z without being able to service it, so exposing document history over the bridge is still outstanding.
+- The reusable `@figuro/slidev` addon is planned; metadata authoring in the native
+  editor is available now. See [#16](https://github.com/amolenk/Figuro/issues/16)
+  for the addon contract and remaining implementation tickets.
 
 ## Requirements
 
@@ -70,4 +76,5 @@ queue paths, and the agent workflow.
 | --- | --- |
 | `apps/macos` | The Swift application. `Figuro.xcodeproj` is generated from `project.yml` and is not committed. |
 | `packages/editor-host` | React app embedding `@excalidraw/excalidraw`, built into the app bundle. |
-| `docs/SPEC.md` | Product and technical specification. |
+| `packages/figuro-schema` | Shared presentation metadata v1 types and validation. |
+| `docs/SPEC.md` | Figuro user guide and current presentation contract. |

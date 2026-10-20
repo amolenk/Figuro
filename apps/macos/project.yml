@@ -72,6 +72,8 @@ targets:
         buildPhase: resources
       - path: Tests/Fixtures/unsupported-version.excalidraw
         buildPhase: resources
+      - path: Tests/Fixtures/mixed-selection.excalidraw
+        buildPhase: resources
     dependencies:
       - target: Figuro
     settings:
