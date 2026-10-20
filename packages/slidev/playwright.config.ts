@@ -1,6 +1,6 @@
 import { defineConfig } from "@playwright/test";
 
-const deckTests = ["static.spec.ts", "reveals.spec.ts", "stylesheets.spec.ts", "roles.spec.ts", "metadata.spec.ts"];
+const deckTests = ["static.spec.ts", "reveals.spec.ts", "stylesheets.spec.ts", "roles.spec.ts", "metadata.spec.ts", "images.spec.ts"];
 
 export default defineConfig({
   testDir: "./tests",
@@ -16,7 +16,7 @@ export default defineConfig({
     { name: "static", testMatch: deckTests, use: { baseURL: "http://localhost:3030" } },
     { name: "built", testMatch: deckTests, use: { baseURL: "http://localhost:3032/fixture/" } },
     { name: "consumer", testMatch: deckTests, use: { baseURL: "http://localhost:3033/fixture/" } },
-    { name: "errors", testMatch: "errors.spec.ts", use: { baseURL: "http://localhost:3031" } },
+    { name: "errors", testMatch: ["errors.spec.ts", "image-errors.spec.ts"], use: { baseURL: "http://localhost:3031" } },
     { name: "stylesheet-errors", testMatch: "stylesheet-errors.spec.ts", use: { baseURL: "http://localhost:3034" } },
   ],
   webServer: [{

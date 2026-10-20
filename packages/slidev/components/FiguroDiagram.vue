@@ -55,6 +55,8 @@ watch(() => props.drawing, async (_, __, onCleanup) => {
           viewBackgroundColor: props.drawing.appState?.viewBackgroundColor ?? "#ffffff",
           exportWithDarkMode: false,
         },
+        // Reuse the scene's embedded resources in every state. Image transforms
+        // and cropping remain the exporter's responsibility, like other visuals.
         files: props.drawing.files ?? {},
       });
       if (!current) return;

@@ -38,6 +38,24 @@ export function validateDrawing(scene: unknown): void {
       if (element[field] !== undefined && typeof element[field] !== "string") fail(`expected string ${field}.`);
     }
     if (element.type === "text" && typeof element.text !== "string") fail("expected text.");
+    if (element.type === "image" && !element.isDeleted) {
+      if (typeof element.fileId !== "string" || !element.fileId) {
+        fail(`image "${element.id}" requires a fileId and embedded image data.`);
+      }
+      const file = isObject(scene.files) && Object.hasOwn(scene.files, element.fileId)
+        ? scene.files[element.fileId] : undefined;
+      const resource = `image "${element.id}" requires embedded image data in file "${element.fileId}"`;
+      if (!isObject(file)) return fail(`${resource}: missing file record.`);
+      if (file.id !== element.fileId) fail(`${resource}: file record id does not match.`);
+      if (typeof file.mimeType !== "string" || !/^image\/[\w.+-]+$/.test(file.mimeType)) {
+        fail(`${resource}: expected an image MIME type.`);
+      }
+      const data = typeof file.dataURL === "string"
+        ? /^data:([^;,]+)(?:;[^,]*)?,([\s\S]+)$/.exec(file.dataURL) : null;
+      if (!data || data[1] !== file.mimeType || !data[2].trim()) {
+        fail(`${resource}: expected a non-empty image data URL matching its MIME type.`);
+      }
+    }
     for (const field of ["link", "index", "frameId", "containerId", "originalText", "font", "name"]) {
       if (element[field] != null && typeof element[field] !== "string") fail(`expected nullable string ${field}.`);
     }

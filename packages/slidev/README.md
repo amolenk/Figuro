@@ -3,7 +3,7 @@
 Excalidraw diagrams with click-driven reveals for **Slidev 53.x**, rendered in the browser using
 Excalidraw **0.18.1** and its public `exportToSvg` API. The addon is versioned
 independently of the native Figuro app. Reveal timing is supported for simple
-shapes and unbound text.
+shapes, unbound text, and embedded images.
 
 ## Use in a deck
 
@@ -124,6 +124,33 @@ clicks, with no extra clicks for the gaps. Backward navigation hides the most
 recent reveal, and forward navigation after the final reveal advances the deck.
 Deleted elements do not add reveal steps.
 
+## Embedded images
+
+Images render from the drawing's `files` records, preserving their appearance,
+crop, flip, and rotation. Each image follows its own reveal step, including when
+multiple images share the same file record. Image bytes are embedded in the
+exported SVG and work offline in built decks.
+
+Every nondeleted image must have a `fileId` matching a file record with the same
+`id`, an image `mimeType`, and a non-empty matching `dataURL`. Missing or incomplete
+required records fail `slidev build` and show a development error naming the
+drawing, image element, and file. Deleted images and unused file records do not
+require resource data.
+
+General CSS can target exported image output. Excalidraw 0.18.1 reuses image
+definitions through SVG `use` nodes; for example, this affects every displayed
+image without changing its source bytes:
+
+```css
+svg use {
+  filter: grayscale(1);
+}
+```
+
+Image semantic roles warn and receive no role hook; their original appearance
+is retained unless a general selector matches the exported output. Reveal timing
+continues to work when an image has an unsupported role.
+
 ## Metadata warnings and fallbacks
 
 The addon accepts unannotated drawings and `customData.figuro` objects with
@@ -185,6 +212,9 @@ and forward/backward reveal states.
 Metadata fixtures check element-level and file-wide warnings, original appearance
 and opt-in general CSS, valid metadata alongside malformed values, immediate
 visibility, retained links, file reuse, and unchanged source bytes.
+Image fixtures check painted pixels for embedded resources, crop, flip, rotation,
+independent reveal timing, general CSS, and image-role fallback. Build fixtures
+reject missing required records and incomplete image data.
 The fixtures also exercise kebab-case component names, quoted Vue expressions,
 and template-only wrapper components.
 
@@ -198,6 +228,8 @@ docker run --rm --ipc=host figuro-slidev-tests pnpm test stylesheets.spec.ts
 docker run --rm --ipc=host figuro-slidev-tests pnpm test stylesheet-errors.spec.ts
 docker run --rm --ipc=host figuro-slidev-tests pnpm test roles.spec.ts
 docker run --rm --ipc=host figuro-slidev-tests pnpm test metadata.spec.ts
+docker run --rm --ipc=host figuro-slidev-tests pnpm test images.spec.ts
+docker run --rm --ipc=host figuro-slidev-tests pnpm test image-errors.spec.ts
 ```
 
 `pnpm test` at the repository root runs the Python runner tests and this full

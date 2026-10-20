@@ -78,3 +78,19 @@ layout: center
 ---
 
 <FiguroDiagram src="./drawings/malformed-values.excalidraw" stylesheet="./styles/roles.css" />
+
+---
+
+<FiguroDiagram src="./drawings/images.excalidraw" />
+
+---
+
+<FiguroDiagram src="./drawings/images.excalidraw" stylesheet="./styles/images.css" />
+
+---
+
+<FiguroDiagram src="./drawings/images.excalidraw" stylesheet="./styles/image-roles.css" />
+
+---
+
+# After images
