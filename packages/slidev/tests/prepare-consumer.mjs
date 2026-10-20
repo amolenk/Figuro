@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import { createRequire } from "node:module";
 
 const directory = "/tmp/figuro-slidev-consumer";
 await rm(directory, { recursive: true, force: true });
@@ -20,5 +21,12 @@ await writeFile(`${directory}/package.json`, JSON.stringify({
 const slides = await readFile(`${directory}/slides.md`, "utf8");
 await writeFile(`${directory}/slides.md`, slides.replace("'@/../../../'", "'@figuro/slidev'"));
 execFileSync("pnpm", ["install", "--ignore-scripts"], { cwd: directory, stdio: "inherit" });
+// The independent export oracle uses the addon's pinned runtime dependency;
+// the consumer still installs no extra renderer or addon dev dependencies.
+const require = createRequire(`${directory}/package.json`);
+const addonRequire = createRequire(require.resolve("@figuro/slidev/package.json"));
+const referencePath = `${directory}/components/BoundTextReference.vue`;
+const reference = await readFile(referencePath, "utf8");
+await writeFile(referencePath, reference.replace('"@excalidraw/excalidraw"', JSON.stringify(addonRequire.resolve("@excalidraw/excalidraw"))));
 execFileSync("pnpm", ["exec", "slidev", "build", "slides.md", "--base", "/fixture/", "--out", resolve("dist/consumer")], { cwd: directory, stdio: "inherit" });
 await rm(directory, { recursive: true, force: true });

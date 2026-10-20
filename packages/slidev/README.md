@@ -3,7 +3,7 @@
 Excalidraw diagrams with click-driven reveals for **Slidev 53.x**, rendered in the browser using
 Excalidraw **0.18.1** and its public `exportToSvg` API. The addon is versioned
 independently of the native Figuro app. Reveal timing is supported for simple
-shapes, unbound text, and embedded images.
+shapes, unbound text, bound text with its container, and embedded images.
 
 ## Use in a deck
 
@@ -124,6 +124,20 @@ clicks, with no extra clicks for the gaps. Backward navigation hides the most
 recent reveal, and forward navigation after the final reveal advances the deck.
 Deleted elements do not add reveal steps.
 
+## Bound text
+
+Bound text and its container reveal together at the later of their two steps.
+For example, a shape at step 2 with a label at step 9 stays hidden until step 9;
+step 2 consumes no click unless other content reveals then. Omitted steps and
+step 0 count as initially visible when resolving the pair's timing.
+
+Each export retains the complete pair, preserving Excalidraw's text placement,
+rotation, multiline labels, and arrow label masks. Revealed content keeps its
+original opacity, and all states keep the same scene frame and scale.
+Role metadata on either member warns and receives no semantic role hook;
+general stylesheet selectors can still match the exported output.
+The source drawing and its assigned steps are never rewritten.
+
 ## Embedded images
 
 Images render from the drawing's `files` records, preserving their appearance,
@@ -215,6 +229,10 @@ visibility, retained links, file reuse, and unchanged source bytes.
 Image fixtures check painted pixels for embedded resources, crop, flip, rotation,
 independent reveal timing, general CSS, and image-role fallback. Build fixtures
 reject missing required records and incomplete image data.
+Bound-text fixtures verify initial and matching steps, both differing-step orders,
+shape and arrow labels, forward/backward navigation, and stable composition.
+Painted output is compared with a direct Excalidraw export to check original
+appearance and role fallback, including rotated and multiline text.
 The fixtures also exercise kebab-case component names, quoted Vue expressions,
 and template-only wrapper components.
 
@@ -230,6 +248,7 @@ docker run --rm --ipc=host figuro-slidev-tests pnpm test roles.spec.ts
 docker run --rm --ipc=host figuro-slidev-tests pnpm test metadata.spec.ts
 docker run --rm --ipc=host figuro-slidev-tests pnpm test images.spec.ts
 docker run --rm --ipc=host figuro-slidev-tests pnpm test image-errors.spec.ts
+docker run --rm --ipc=host figuro-slidev-tests pnpm test bound-text.spec.ts
 ```
 
 `pnpm test` at the repository root runs the Python runner tests and this full

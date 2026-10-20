@@ -94,3 +94,17 @@ layout: center
 ---
 
 # After images
+
+---
+
+<FiguroDiagram src="./drawings/bound-text.excalidraw" />
+
+---
+
+<FiguroDiagram src="./drawings/bound-text.excalidraw" stylesheet="./styles/bound-text-roles.css" />
+
+---
+
+# After bound text
+
+<BoundTextReference />

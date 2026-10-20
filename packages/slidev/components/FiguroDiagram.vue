@@ -7,6 +7,7 @@ import type { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
 import assetPath from "virtual:figuro-fonts";
 import { prepareRoleStyling } from "../src/role-styling";
 import { preparePresentationMetadata, warnPresentationMetadata } from "../src/presentation-metadata";
+import { prepareRevealSteps } from "../src/reveal-steps";
 
 const props = defineProps<{
   src: string;
@@ -18,17 +19,12 @@ const props = defineProps<{
     files?: BinaryFiles;
   };
 }>();
-function revealStep(element: ExcalidrawElement): number {
-  const metadata = element.customData?.figuro;
-  return metadata?.v === 1 && Number.isInteger(metadata.step) && metadata.step >= 0
-    ? metadata.step : 0;
-}
-
 // Slot names must be available synchronously: Slidev captures v-switch slots
 // when it mounts, before the asynchronous SVG exports have finished.
 const presentation = computed(() => preparePresentationMetadata(props.drawing?.elements ?? []));
-const steps = computed(() => [0, ...new Set(presentation.value.elements
-  .map(revealStep).filter(step => step > 0))].sort((left, right) => left - right));
+const revealSteps = computed(() => prepareRevealSteps(presentation.value.elements));
+const steps = computed(() => [0, ...new Set([...revealSteps.value.values()]
+  .filter(step => step > 0))].sort((left, right) => left - right));
 const markup = ref<string[]>([]);
 const error = ref("");
 
@@ -44,12 +40,13 @@ watch(() => props.drawing, async (_, __, onCleanup) => {
     warnPresentationMetadata(props.src, prepared);
     const elements = restoreElements(prepared.elements, null).filter(element => !element.isDeleted);
     const roles = prepareRoleStyling(elements, props.src);
+    const timing = revealSteps.value;
     const stages: string[] = [];
     for (const step of steps.value) {
       const svg = await exportToSvg({
         // Keep the complete scene in every export so its bounds and coordinates
         // are identical. Change only copies' opacity, never the source drawing.
-        elements: roles.elements.map(element => revealStep(element) > step ? { ...element, opacity: 0 } : element),
+        elements: roles.elements.map(element => (timing.get(element.id) ?? 0) > step ? { ...element, opacity: 0 } : element),
         appState: {
           exportBackground: true,
           viewBackgroundColor: props.drawing.appState?.viewBackgroundColor ?? "#ffffff",
