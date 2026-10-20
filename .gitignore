@@ -18,3 +18,7 @@ xcuserdata/
 # Shared-directory UI test jobs and Python runner caches
 .ui-tests/
 __pycache__/
+
+# Browser acceptance artifacts
+test-results/
+playwright-report/

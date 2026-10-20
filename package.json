@@ -6,6 +6,8 @@
     "onlyBuiltDependencies": ["esbuild"]
   },
   "scripts": {
+    "typecheck": "pnpm --filter @figuro/editor-host exec tsc --noEmit && pnpm --filter @figuro/slidev typecheck",
+    "test": "pnpm test:ui:runner:check && pnpm --filter @figuro/slidev test:docker",
     "build": "pnpm --filter @figuro/editor-host build",
     "dev": "pnpm --filter @figuro/editor-host dev",
     "test:ui:start": "python3 scripts/ui-tests.py start",

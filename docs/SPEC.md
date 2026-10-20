@@ -105,12 +105,23 @@ preserve opaque metadata.
 Other tools preserve annotations only if they retain Excalidraw `customData`
 when loading and saving.
 
-## Slidev integration contract
+## Static drawings in Slidev
 
-The `@figuro/slidev` addon is planned and is not yet shipped. Its agreed interface
-is a `FiguroDiagram` component with required `src` and optional `stylesheet`
-paths, resolved relative to the deck. One drawing is one slide, including when
-the drawing contains Excalidraw frames.
+The workspace now includes the `@figuro/slidev` addon foundation for Slidev 53.x
+and Excalidraw 0.18.1. Register it through Slidev's addon mechanism and place
+`<FiguroDiagram src="./drawings/architecture.excalidraw" />` on a slide.
+The literal drawing path is relative to the deck entry file's directory.
+The component exports the whole drawing to SVG in the browser with its original
+appearance, without modifying the source. Missing, unreadable, and invalid input
+surfaces a development error and fails production builds with the drawing path.
+See the [addon guide](../packages/slidev/README.md) for local installation and the
+Linux Docker browser-acceptance fixture.
+
+### Remaining presentation contract
+
+The full presentation interface adds an optional `stylesheet` path alongside
+the required `src`, both resolved relative to the deck. One drawing is one slide,
+including when the drawing contains Excalidraw frames.
 
 The addon will use normal Slidev forward/backward navigation for reveal states,
 keep the SVG frame stable, and continue to the next slide after the final reveal.
@@ -119,8 +130,8 @@ only to rendered presentation output, overrides matching properties, and never
 edits the source drawing. Reliable semantic role hooks use
 `[data-figuro-role="primary"]` selectors.
 
-Initial compatibility is Slidev 53.x and Excalidraw 0.18.1, supporting ordinary
-drawings and Figuro metadata v1 independently of the app release. Complex scenes
+Initial compatibility is Slidev 53.x and Excalidraw 0.18.1. Presentation support
+will add Figuro metadata v1 independently of the app release. Complex scenes
 have explicit rendering, reveal, and role-styling boundaries in
 [#16](https://github.com/amolenk/Figuro/issues/16), including images, bound text,
 frames/clipping, and grouped content. Assigning metadata in the editor does not
