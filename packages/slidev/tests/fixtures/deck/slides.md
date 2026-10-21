@@ -126,3 +126,21 @@ layout: center
 ---
 
 # After styled frames
+
+---
+
+<FiguroDiagram src="./drawings/groups.excalidraw" />
+
+---
+
+# After grouped reveals
+
+<GroupsReference />
+
+---
+
+<FiguroDiagram src="./drawings/groups.excalidraw" stylesheet="./styles/group-roles.css" />
+
+---
+
+# After styled groups

@@ -3,8 +3,8 @@
 Excalidraw diagrams with click-driven reveals for **Slidev 53.x**, rendered in the browser using
 Excalidraw **0.18.1** and its public `exportToSvg` API. The addon is versioned
 independently of the native Figuro app. Reveal timing is supported for simple
-shapes, unbound text, bound text with its container, embedded images, and framed
-children.
+shapes, unbound text, bound text with its container, embedded images, framed
+children, and grouped members.
 
 ## Use in a deck
 
@@ -156,6 +156,20 @@ retaining original appearance unless a general stylesheet selector matches.
 Frame and child opacity from the source drawing are preserved; presentation
 reveal timing never hides a frame or changes the source file.
 
+## Grouped content
+
+Excalidraw's `groupIds` are editor relationships only. Members, including nested
+groups, follow their own reveal steps; group membership adds no group-level
+timing or role inheritance. Unannotated members and step-0 members stay visible
+initially while other members reveal at their assigned steps. Bound text still
+reveals atomically with its container, and frame structure stays present.
+
+The complete scene is retained in each export, preserving member appearance,
+rotation, original opacity, links, and a common frame and scale. Role metadata on
+grouped members warns and receives no semantic role hook, retaining original
+appearance unless a general stylesheet selector matches their rendered output.
+Revealing or styling grouped content never rewrites the source drawing.
+
 ## Embedded images
 
 Images render from the drawing's `files` records, preserving their appearance,
@@ -256,6 +270,11 @@ isolated SVG pixels for child clipping and
 opacity across reveal states, frame-only steps, shared steps inside and outside
 frames, stable structure and scale, single-slide navigation, source immutability,
 and role warnings with original appearance.
+Group fixtures check independent steps within nested and separate groups,
+initial members, shared steps, numeric gaps, forward/backward navigation, stable
+framing, links, unchanged source bytes, and role warnings without inheritance.
+Painted output is compared with direct Excalidraw export and unstyled reveal
+states to verify native appearance and role fallback.
 The fixtures also exercise kebab-case component names, quoted Vue expressions,
 and template-only wrapper components.
 
@@ -273,6 +292,7 @@ docker run --rm --ipc=host figuro-slidev-tests pnpm test images.spec.ts
 docker run --rm --ipc=host figuro-slidev-tests pnpm test image-errors.spec.ts
 docker run --rm --ipc=host figuro-slidev-tests pnpm test bound-text.spec.ts
 docker run --rm --ipc=host figuro-slidev-tests pnpm test frames.spec.ts
+docker run --rm --ipc=host figuro-slidev-tests pnpm test groups.spec.ts
 ```
 
 `pnpm test` at the repository root runs the Python runner tests and this full

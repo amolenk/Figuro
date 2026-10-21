@@ -1,6 +1,6 @@
 import { defineConfig } from "@playwright/test";
 
-const deckTests = ["static.spec.ts", "reveals.spec.ts", "stylesheets.spec.ts", "roles.spec.ts", "metadata.spec.ts", "images.spec.ts", "bound-text.spec.ts", "frames.spec.ts"];
+const deckTests = ["static.spec.ts", "reveals.spec.ts", "stylesheets.spec.ts", "roles.spec.ts", "metadata.spec.ts", "images.spec.ts", "bound-text.spec.ts", "frames.spec.ts", "groups.spec.ts"];
 
 export default defineConfig({
   testDir: "./tests",

@@ -2,6 +2,8 @@ import type { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
 
 /** Resolve frame structure and atomic bound-text timing before click capture. */
 export function prepareRevealSteps(elements: ExcalidrawElement[]) {
+  // groupIds are editor relationships only. Each member keeps its own step;
+  // bound-text timing still applies when a container and label are grouped.
   const steps = new Map(elements.map(element => {
     const metadata = element.customData?.figuro;
     // Frames are always-present structure. Hiding a frame would also suppress

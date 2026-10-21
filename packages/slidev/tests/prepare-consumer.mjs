@@ -25,7 +25,7 @@ execFileSync("pnpm", ["install", "--ignore-scripts"], { cwd: directory, stdio: "
 // the consumer still installs no extra renderer or addon dev dependencies.
 const require = createRequire(`${directory}/package.json`);
 const addonRequire = createRequire(require.resolve("@figuro/slidev/package.json"));
-for (const component of ["BoundTextReference", "FramesReference"]) {
+for (const component of ["BoundTextReference", "FramesReference", "GroupsReference"]) {
   const referencePath = `${directory}/components/${component}.vue`;
   const reference = await readFile(referencePath, "utf8");
   await writeFile(referencePath, reference.replace('"@excalidraw/excalidraw"', JSON.stringify(addonRequire.resolve("@excalidraw/excalidraw"))));
