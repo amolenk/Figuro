@@ -3,14 +3,27 @@
   "version": "0.1.0",
   "description": "Render local Excalidraw drawings in Slidev",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/amolenk/Figuro.git",
+    "directory": "packages/slidev"
+  },
+  "homepage": "https://github.com/amolenk/Figuro/tree/main/packages/slidev#readme",
+  "bugs": { "url": "https://github.com/amolenk/Figuro/issues" },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
   "type": "module",
   "keywords": ["slidev-addon", "slidev", "excalidraw", "figuro"],
-  "files": ["components", "setup", "src", "README.md"],
+  "files": ["components", "setup", "src", "README.md", "LICENSE"],
   "engines": { "slidev": ">=53.0.0 <54.0.0" },
   "scripts": {
     "typecheck": "vue-tsc --noEmit",
+    "test:package": "node --test tests/package.test.mjs",
+    "prepublishOnly": "pnpm typecheck && pnpm test:package",
     "test": "playwright test",
-    "test:docker": "docker build -f Dockerfile -t figuro-slidev-tests ../.. && docker run --rm --ipc=host figuro-slidev-tests"
+    "test:docker": "node tests/test-docker.mjs"
   },
   "dependencies": {
     "@excalidraw/excalidraw": "0.18.1",

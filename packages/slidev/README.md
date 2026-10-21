@@ -8,12 +8,18 @@ children, and grouped members.
 
 ## Use in a deck
 
-The package is available in this workspace; registry publication is a separate
-release step. Add a local dependency from your deck:
+In a Slidev 53.x deck, install the public addon and its runtime peers:
 
 ```sh
-pnpm add @figuro/slidev@file:../Figuro/packages/slidev
+pnpm add @figuro/slidev vue@^3.5.0 react@^19.2.0 react-dom@^19.2.0
+# Or with npm:
+npm install @figuro/slidev vue@^3.5.0 react@^19.2.0 react-dom@^19.2.0
 ```
+
+The first npm release is pending publication. Until it is available, you can use
+`pnpm add @figuro/slidev@file:../Figuro/packages/slidev` from a local checkout.
+For a new deck, install `@slidev/cli@53`, `@slidev/theme-default@0.25.0`, and
+`markdown-it@14.1.0` as development dependencies before starting Slidev.
 
 Register the addon in the headmatter of `slides.md`:
 
@@ -29,10 +35,18 @@ layout: center
 
 `src` is a required, literal local `.excalidraw` path relative to the directory
 containing the deck's entry Markdown file. Assets do not need to be in `public/`.
-One component renders the whole drawing as one diagram on the current
-slide. Its original strokes, fills, text, and scene background are retained.
+Use one drawing component per slide; add Markdown `---` separators for subsequent
+slides. The entire file is rendered on that slide, including all Excalidraw frames.
+Its original strokes, fills, text, and scene background are retained.
 Fonts are served locally and included in built decks; SVG export also receives
 the scene's `files` map. Rendering reads the source and never saves it.
+
+Slidev registers `FiguroDiagram` automatically through the addon; no component
+import or separate Vite configuration is needed. `src` and `stylesheet` must be
+literal local paths, such as `src="./drawings/architecture.excalidraw"`.
+Remote URLs, absolute paths, and Vue-bound paths such as `:src="drawingPath"` are
+unsupported because the addon validates assets during the build. Paths in
+template-only deck wrapper components use the same entry-Markdown directory.
 
 ## Presentation stylesheets
 
@@ -203,6 +217,23 @@ The addon accepts unannotated drawings and `customData.figuro` objects with
 `v: 1`, an optional non-negative safe-integer `step`, and an optional string
 `role`. Unknown fields in v1 objects are ignored.
 
+For example, an element can carry both timing and a role alongside unrelated data:
+
+```json
+{
+  "customData": {
+    "otherTool": { "label": "preserved" },
+    "figuro": { "v": 1, "step": 2, "role": "service" }
+  }
+}
+```
+
+Compatibility is based on this file contract, independently of the Figuro app
+release or the tool that wrote the drawing. Unannotated files and metadata v1
+files do not require Figuro to be installed. The addon reads metadata without
+rewriting it; other editors must retain Excalidraw `customData` when saving to
+preserve annotations.
+
 Malformed metadata produces a warning naming the drawing and affected element.
 All metadata on that element is ignored: it stays visible from step 0 with its
 original Excalidraw appearance unless a general stylesheet rule matches it.
@@ -231,9 +262,23 @@ filesystem path. Changes to drawing files are watched during development.
 
 The compatibility boundary is declared in `engines.slidev` and the CLI peer
 range (`>=53.0.0 <54.0.0`); Excalidraw is pinned exactly to `0.18.1`.
-The acceptance fixture pins Slidev `53.0.0`. It explicitly installs
+CI tests the minimum Slidev `53.0.0` and the latest available `53.x` release, using
+the same browser suite for both. The acceptance fixture explicitly installs
 `markdown-it@14.1.0` to satisfy the parser peer used by that version of Slidev.
 Vue and React peers supply the runtime needed by Slidev and Excalidraw.
+Node and browser requirements follow Slidev 53; its Node requirement is
+`>=22.12.0`. Excalidraw remains pinned even if a newer renderer is available.
+Compatibility ranges are expanded only after passing browser acceptance.
+
+`@figuro/slidev` has its own SemVer release sequence; its version is not the macOS
+app version or the metadata schema version. During the initial `0.x` releases,
+breaking component or file-contract changes increment the minor version and
+compatible fixes increment the patch version. From `1.0.0`, breaking changes
+increment the major version, compatible features the minor version, and fixes
+the patch version. Metadata v1 support is part of that public contract.
+
+Maintainers can follow the [addon release procedure](https://github.com/amolenk/Figuro/blob/main/docs/SLIDEV_RELEASE.md)
+to publish and verify an exact registry version in a clean consumer deck.
 
 ## Verify
 
@@ -244,7 +289,8 @@ pnpm typecheck
 pnpm --filter @figuro/slidev test:docker
 ```
 
-The Docker command installs from the lockfile into a Linux Playwright image and
+The Docker command typechecks and inspects the npm tarball, installs from the
+lockfile into a Linux Playwright image, and
 runs Chromium against a development fixture, a production build hosted under
 `/fixture/`, a separate deck installed from the packed addon without addon dev
 dependencies, and an invalid-input fixture. It checks visible text, original
@@ -298,3 +344,11 @@ docker run --rm --ipc=host figuro-slidev-tests pnpm test groups.spec.ts
 `pnpm test` at the repository root runs the Python runner tests and this full
 browser suite. Native document acceptance remains available through `make test`
 on macOS or the shared macOS runner described in `docs/UI_TEST_RUNNER.md`.
+
+Test the latest supported Slidev release with
+`SLIDEV_VERSION=53 pnpm --filter @figuro/slidev test:docker`.
+After publishing, run
+`FIGURO_PACKAGE_VERSION=0.1.0 pnpm --filter @figuro/slidev test:docker`
+to install that exact release from npm in the clean consumer deck and run the
+same browser-acceptance suite. The consumer has no workspace links or addon dev
+dependencies. Replace `0.1.0` with the release under verification.

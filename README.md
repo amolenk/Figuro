@@ -27,9 +27,19 @@ Working and verified end to end through real input events:
 Not done yet:
 
 - Undo and Redo are handled inside Excalidraw and have no native menu items. A native Edit menu entry would capture Cmd-Z without being able to service it, so exposing document history over the bridge is still outstanding.
-- The reusable `@figuro/slidev` addon is planned; metadata authoring in the native
-  editor is available now. See [#16](https://github.com/amolenk/Figuro/issues/16)
-  for the addon contract and remaining implementation tickets.
+
+## Slidev addon
+
+[`@figuro/slidev`](packages/slidev/README.md) renders one `.excalidraw` drawing per
+Slidev slide, with click-driven reveals and optional presentation stylesheets.
+It supports Slidev 53.x, pins Excalidraw 0.18.1, and has independent SemVer releases.
+Ordinary files and Figuro metadata v1 work without the native app installed.
+
+The addon is ready for its first public npm release; registry publication is
+pending. See the [addon guide](packages/slidev/README.md) for installation,
+`FiguroDiagram` authoring, supported metadata, and complex-scene behavior, and
+the [release procedure](docs/SLIDEV_RELEASE.md) for publishing and clean-consumer
+verification. Slidev 53 requires Node.js 22.12 or later.
 
 ## Requirements
 
@@ -77,4 +87,5 @@ queue paths, and the agent workflow.
 | `apps/macos` | The Swift application. `Figuro.xcodeproj` is generated from `project.yml` and is not committed. |
 | `packages/editor-host` | React app embedding `@excalidraw/excalidraw`, built into the app bundle. |
 | `packages/figuro-schema` | Shared presentation metadata v1 types and validation. |
+| `packages/slidev` | Independently released Slidev addon and Docker browser acceptance suite. |
 | `docs/SPEC.md` | Figuro user guide and current presentation contract. |
