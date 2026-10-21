@@ -57,6 +57,25 @@ watch(() => props.drawing, async (_, __, onCleanup) => {
         files: props.drawing.files ?? {},
       });
       if (!current) return;
+      // Inline states share a document. Unique IDs prevent a visible state's
+      // clipping from resolving to a hidden state or another diagram instance.
+      const clipReferences = new Map<string, string>();
+      const prefix = `figuro-${crypto.getRandomValues(new Uint32Array(4)).join("-")}`;
+      const clipPaths: NodeListOf<SVGClipPathElement> = svg.querySelectorAll("clipPath[id]");
+      for (const [index, path] of Array.from(clipPaths).entries()) {
+        const id = `${prefix}-${index}`;
+        clipReferences.set(`url(#${path.id})`, `url(#${id})`);
+        path.id = id;
+      }
+      // Excalidraw 0.18.1 puts clip-path in the SVG namespace. Serialization
+      // prefixes it, but inline SVG presentation attributes must be unqualified.
+      for (const node of svg.querySelectorAll("*")) {
+        const clip = node.getAttributeNS(svg.namespaceURI, "clip-path") ?? node.getAttribute("clip-path");
+        if (clip !== null) {
+          node.removeAttributeNS(svg.namespaceURI, "clip-path");
+          node.setAttribute("clip-path", clipReferences.get(clip) ?? clip);
+        }
+      }
       roles.apply(svg);
       stages.push(new XMLSerializer().serializeToString(svg));
     }

@@ -3,7 +3,8 @@
 Excalidraw diagrams with click-driven reveals for **Slidev 53.x**, rendered in the browser using
 Excalidraw **0.18.1** and its public `exportToSvg` API. The addon is versioned
 independently of the native Figuro app. Reveal timing is supported for simple
-shapes, unbound text, bound text with its container, and embedded images.
+shapes, unbound text, bound text with its container, embedded images, and framed
+children.
 
 ## Use in a deck
 
@@ -138,6 +139,23 @@ Role metadata on either member warns and receives no semantic role hook;
 general stylesheet selectors can still match the exported output.
 The source drawing and its assigned steps are never rewritten.
 
+## Frames and clipping
+
+Frame outlines, names, and child clipping are retained in every reveal state.
+Frames (including magic frames and empty frames) are present from step 0, even
+when assigned a positive reveal step; frame-only steps consume no clicks.
+Children follow their own reveal steps, with bound text still revealing atomically
+with its container. Frame structure and the whole drawing's scale stay stable
+through forward and backward navigation.
+
+One drawing file remains one Slidev slide. Use deck Markdown to define slide
+boundaries rather than Excalidraw frames.
+
+Role metadata on frames or their children warns and receives no role hook,
+retaining original appearance unless a general stylesheet selector matches.
+Frame and child opacity from the source drawing are preserved; presentation
+reveal timing never hides a frame or changes the source file.
+
 ## Embedded images
 
 Images render from the drawing's `files` records, preserving their appearance,
@@ -233,6 +251,11 @@ Bound-text fixtures verify initial and matching steps, both differing-step order
 shape and arrow labels, forward/backward navigation, and stable composition.
 Painted output is compared with a direct Excalidraw export to check original
 appearance and role fallback, including rotated and multiline text.
+Frame fixtures check named, empty, and magic frames, live-deck screenshots and
+isolated SVG pixels for child clipping and
+opacity across reveal states, frame-only steps, shared steps inside and outside
+frames, stable structure and scale, single-slide navigation, source immutability,
+and role warnings with original appearance.
 The fixtures also exercise kebab-case component names, quoted Vue expressions,
 and template-only wrapper components.
 
@@ -249,6 +272,7 @@ docker run --rm --ipc=host figuro-slidev-tests pnpm test metadata.spec.ts
 docker run --rm --ipc=host figuro-slidev-tests pnpm test images.spec.ts
 docker run --rm --ipc=host figuro-slidev-tests pnpm test image-errors.spec.ts
 docker run --rm --ipc=host figuro-slidev-tests pnpm test bound-text.spec.ts
+docker run --rm --ipc=host figuro-slidev-tests pnpm test frames.spec.ts
 ```
 
 `pnpm test` at the repository root runs the Python runner tests and this full

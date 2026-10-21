@@ -1,0 +1,54 @@
+{
+  "type": "excalidraw",
+  "version": 2,
+  "source": "https://excalidraw.com",
+  "elements": [
+    {
+      "id": "initial-child", "type": "rectangle",
+      "x": -60, "y": 30, "width": 140, "height": 60,
+      "strokeColor": "transparent", "backgroundColor": "#e03131",
+      "fillStyle": "solid", "roughness": 0, "seed": 401,
+      "frameId": "first-frame"
+    },
+    {
+      "id": "later-child", "type": "rectangle",
+      "x": 160, "y": 110, "width": 140, "height": 60,
+      "strokeColor": "transparent", "backgroundColor": "#2f9e44",
+      "fillStyle": "solid", "roughness": 0, "seed": 402,
+      "frameId": "first-frame",
+      "customData": { "figuro": { "v": 1, "step": 2, "role": "child" } }
+    },
+    {
+      "id": "first-frame", "type": "frame", "name": "First frame",
+      "x": 0, "y": 0, "width": 240, "height": 180, "seed": 403,
+      "customData": { "figuro": { "v": 1, "step": 1, "role": "frame" } }
+    },
+    {
+      "id": "second-child", "type": "rectangle",
+      "x": 400, "y": 130, "width": 200, "height": 100,
+      "strokeColor": "transparent", "backgroundColor": "#1971c2",
+      "fillStyle": "solid", "roughness": 0, "seed": 404, "opacity": 70,
+      "frameId": "second-frame",
+      "customData": { "figuro": { "v": 1, "step": 9, "role": "child" } }
+    },
+    {
+      "id": "second-frame", "type": "magicframe", "name": "Second frame",
+      "x": 360, "y": 0, "width": 200, "height": 180, "seed": 405,
+      "customData": { "figuro": { "v": 1, "step": 99, "role": "frame" } }
+    },
+    {
+      "id": "empty-frame", "type": "frame", "name": "Empty frame",
+      "x": 600, "y": 0, "width": 180, "height": 180, "seed": 406,
+      "customData": { "figuro": { "v": 1, "step": 42 } }
+    },
+    {
+      "id": "outside", "type": "rectangle",
+      "x": 600, "y": 240, "width": 120, "height": 80,
+      "strokeColor": "transparent", "backgroundColor": "#f08c00",
+      "fillStyle": "solid", "roughness": 0, "seed": 407,
+      "customData": { "figuro": { "v": 1, "step": 2 } }
+    }
+  ],
+  "appState": { "viewBackgroundColor": "#ffffff" },
+  "files": {}
+}

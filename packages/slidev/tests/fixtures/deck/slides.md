@@ -108,3 +108,21 @@ layout: center
 # After bound text
 
 <BoundTextReference />
+
+---
+
+<FiguroDiagram src="./drawings/frames.excalidraw" />
+
+---
+
+# After frames
+
+<FramesReference />
+
+---
+
+<FiguroDiagram src="./drawings/frames.excalidraw" stylesheet="./styles/frame-roles.css" />
+
+---
+
+# After styled frames
