@@ -41,6 +41,10 @@ watch(() => [host.value, props.markup, props.stylesheetCss], (_, __, onCleanup) 
 </template>
 
 <style scoped>
+.figuro-svg {
+  height: 100%;
+}
+
 .figuro-svg :deep(svg) {
   display: block;
   max-width: 100%;

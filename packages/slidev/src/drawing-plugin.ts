@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import type { Plugin } from "vite";
 import { validateDrawing } from "./validate-drawing";
+import { roughnessModes } from "./render-styling";
 import { baseParse, NodeTypes } from "@vue/compiler-dom";
 import type { RootNode, TemplateChildNode } from "@vue/compiler-dom";
 import { parse } from "@vue/compiler-sfc";
@@ -65,6 +66,14 @@ export function drawingPlugin(deckRoot: string): Plugin {
             if (dynamic) this.error(`[Figuro] ${id}: FiguroDiagram requires a literal ${attribute} path for build validation.`);
           }
           const src = node.props.find(prop => prop.type === NodeTypes.ATTRIBUTE && prop.name === "src");
+          const layout = node.props.find(prop => prop.type === NodeTypes.ATTRIBUTE && prop.name === "layout");
+          if (layout?.type === NodeTypes.ATTRIBUTE && !["original", "tidy", "structured"].includes(layout.value?.content ?? "")) {
+            this.error(`[Figuro] ${id}: Unknown layout "${layout.value?.content ?? ""}". Expected original, tidy, or structured.`);
+          }
+          const roughness = node.props.find(prop => prop.type === NodeTypes.ATTRIBUTE && prop.name === "roughness");
+          if (roughness?.type === NodeTypes.ATTRIBUTE && !roughnessModes.some(mode => mode === roughness.value?.content)) {
+            this.error(`[Figuro] ${id}: Unknown roughness "${roughness.value?.content ?? ""}". Expected ${roughnessModes.join(", ")}.`);
+          }
           if (!src || src.type !== NodeTypes.ATTRIBUTE || !src.value) {
             this.error(`[Figuro] ${id}: FiguroDiagram requires a literal src path.`);
           }

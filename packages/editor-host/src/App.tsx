@@ -1,5 +1,7 @@
 import {
+  Button,
   Excalidraw,
+  Sidebar,
   exportToBlob,
   exportToSvg,
   newElementWith,
@@ -77,7 +79,7 @@ function revealStepLabel(element: ExcalidrawElement | null): string {
   if (!element) return "";
   const state = inspectFiguroMetadata(element.customData?.figuro);
   if (state.kind === "unannotated") return "No step · visible initially";
-  if (state.kind === "opaque") return "Unsupported Figuro metadata";
+  if (state.kind === "opaque") return "Unsupported presentation metadata";
   if (!("step" in state.metadata)) return "No step · visible initially";
   const step = isNonNegativeInteger(state.metadata.step) ? state.metadata.step : null;
   return step === null ? "Invalid reveal step" : `Step ${step}`;
@@ -100,7 +102,7 @@ function semanticStyleRoleLabel(element: ExcalidrawElement | null): string {
   if (!element) return "";
   const state = inspectFiguroMetadata(element.customData?.figuro);
   if (state.kind === "unannotated") return "No role";
-  if (state.kind === "opaque") return "Unsupported Figuro metadata";
+  if (state.kind === "opaque") return "Unsupported presentation metadata";
   if (!("role" in state.metadata)) return "No role";
   return typeof state.metadata.role === "string"
     ? `Role ${state.metadata.role}`
@@ -212,6 +214,7 @@ function serialize(api: ExcalidrawImperativeAPI): string {
 
 export default function App() {
   const [api, setApi] = useState<ExcalidrawImperativeAPI | null>(null);
+  const [inspectorOpen, setInspectorOpen] = useState(true);
   const [selectedElements, setSelectedElements] = useState<readonly ExcalidrawElement[]>([]);
   const [stepDraft, setStepDraft] = useState("");
   const [roleDraft, setRoleDraft] = useState("");
@@ -522,6 +525,32 @@ export default function App() {
     [api, noteUserEdit],
   );
 
+  const toggleInspector = useCallback(() => {
+    if (!api) return;
+    userHasInteracted.current = true;
+    const closing = api.getAppState().openSidebar?.name === "presentation";
+    if (closing && document.activeElement?.closest(".presentation-inspector")) {
+      containerRef.current?.querySelector<HTMLButtonElement>(".presentation-toggle")?.focus();
+    }
+    api.toggleSidebar({ name: "presentation" });
+  }, [api]);
+
+  useEffect(() => {
+    const handleSidebarShortcut = (event: globalThis.KeyboardEvent) => {
+      if (
+        !(event.metaKey || event.ctrlKey) ||
+        event.altKey || event.shiftKey ||
+        event.key.toLowerCase() !== "b"
+      ) return;
+      // Capture before Excalidraw or text fields can handle the shortcut.
+      event.preventDefault();
+      event.stopPropagation();
+      if (!event.repeat) toggleInspector();
+    };
+    window.addEventListener("keydown", handleSidebarShortcut, true);
+    return () => window.removeEventListener("keydown", handleSidebarShortcut, true);
+  }, [toggleInspector]);
+
   /**
    * Keeps the drawing framed until the user takes over.
    *
@@ -535,7 +564,12 @@ export default function App() {
     if (!api || userHasInteracted.current) return;
     const elements = api.getSceneElements();
     if (elements.length === 0) return;
-    api.scrollToContent(elements, { fitToContent: true, animate: false });
+    const sidebar = containerRef.current?.querySelector(".presentation-inspector");
+    api.scrollToContent(elements, {
+      fitToContent: true,
+      animate: false,
+      canvasOffsets: { right: sidebar?.getBoundingClientRect().width ?? 0 },
+    });
   }, [api]);
 
   useEffect(() => {
@@ -559,7 +593,11 @@ export default function App() {
       }
       const parsed = json.trim() === "" ? {} : JSON.parse(json);
       const scene = restore(parsed, null, null);
-      api.updateScene({ ...scene, captureUpdate: "NEVER" });
+      api.updateScene({
+        ...scene,
+        appState: { ...scene.appState, openSidebar: api.getAppState().openSidebar },
+        captureUpdate: "NEVER",
+      });
       api.addFiles(Object.values(scene.files ?? {}));
       api.history.clear();
       userHasEdited.current = false;
@@ -610,8 +648,18 @@ export default function App() {
       exportPNG,
     };
 
-    postToHost({ type: "ready" });
+    // The API is exposed before Excalidraw finishes restoring initialData.
+    // A native host loading its document earlier would race that restore.
+    let notifiedReady = false;
+    const notifyReady = () => {
+      if (notifiedReady || api.getAppState().isLoading) return;
+      notifiedReady = true;
+      postToHost({ type: "ready" });
+    };
+    const unsubscribeReady = api.onChange(notifyReady);
+    notifyReady();
     return () => {
+      unsubscribeReady();
       delete window.figuro;
     };
   }, [api, fitToViewport]);
@@ -625,9 +673,8 @@ export default function App() {
     canEditSelection &&
     stepDraft.trim() !== "" &&
     isNonNegativeInteger(parsedStepDraft);
-  const canSetRole =
-    canEditSelection &&
-    roleDraft.trim() !== "";
+  const invalidStep = stepDraft !== "" && !canSetStep && canEditSelection;
+  const sidebarShortcut = /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘B" : "Ctrl+B";
 
   return (
     <div
@@ -647,7 +694,26 @@ export default function App() {
       >
         <Excalidraw
           excalidrawAPI={setApi}
+          initialData={{ appState: { openSidebar: { name: "presentation" } } }}
           onChange={handleChange}
+          renderTopRightUI={() => (
+            <Button
+              className="presentation-toggle sidebar-trigger"
+              onSelect={toggleInspector}
+              selected={inspectorOpen}
+              title={`Toggle presentation sidebar (${sidebarShortcut})`}
+              aria-label="Toggle presentation sidebar"
+              aria-expanded={inspectorOpen}
+              aria-controls="presentation-inspector"
+              aria-keyshortcuts="Meta+B Control+B"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+                <rect x="3" y="4" width="18" height="16" rx="2" />
+                <path d="M15 4v16" />
+              </svg>
+              <span>Presentation</span>
+            </Button>
+          )}
           onPointerDown={(_activeTool, pointerDownState) => {
             if (!sceneInteraction.current) return;
             sceneInteraction.current.hitElement =
@@ -659,148 +725,144 @@ export default function App() {
           }}
           // The macOS app owns the file lifecycle, so Excalidraw's own
           // open/save/export entries would be misleading.
-          UIOptions={
-            hasHost()
+          UIOptions={{
+            dockedSidebarBreakpoint: 0,
+            canvasActions: hasHost()
               ? {
-                  canvasActions: {
-                    loadScene: false,
-                    saveToActiveFile: false,
-                    export: false,
-                    saveAsImage: false,
-                  },
+                  loadScene: false,
+                  saveToActiveFile: false,
+                  export: false,
+                  saveAsImage: false,
                 }
-              : undefined
-          }
-        />
+              : undefined,
+          }}
+        >
+          <Sidebar
+            name="presentation"
+            docked
+            className="presentation-inspector"
+            onStateChange={(state) => {
+              setInspectorOpen(state !== null);
+              // Opening and closing the sidebar are view changes.
+              userHasInteracted.current = true;
+            }}
+          >
+            <Sidebar.Header className="inspector-heading">
+              <h2>Presentation</h2>
+            </Sidebar.Header>
+            <aside id="presentation-inspector" className="inspector-content" aria-label="Presentation inspector">
+              {selectionCount > 0 && <p className="selection-count">{selectionCount} selected</p>}
+              {selectionCount === 0 ? (
+                <p className="inspector-empty">
+                  Select elements in the drawing to edit their reveal step and semantic style role.
+                </p>
+              ) : (
+                <>
+                  <section className="inspector-control">
+                    <label htmlFor="reveal-step-input">Reveal step</label>
+                    <p className="step-current">Current: {stepLabel}</p>
+                    <div className="step-form">
+                      <input
+                        id="reveal-step-input"
+                        aria-label="Reveal step"
+                        type="number"
+                        min="0"
+                        step="1"
+                        inputMode="numeric"
+                        placeholder={stepLabel === "Mixed steps" ? "Mixed" : "e.g. 2"}
+                        value={stepDraft}
+                        disabled={!canEditSelection}
+                        aria-invalid={invalidStep}
+                        aria-describedby={invalidStep ? "reveal-step-error" : "reveal-step-help"}
+                        onChange={(event) => {
+                          const input = event.currentTarget;
+                          const value = input.value;
+                          setStepDraft(value);
+                          if (input.validity.badInput) return;
+                          if (value === "") applyPresentationEdit({ field: "step", value: null });
+                          else if (isNonNegativeInteger(Number(value))) {
+                            applyPresentationEdit({ field: "step", value: Number(value) });
+                          }
+                        }}
+                      />
+                    </div>
+                    {invalidStep && (
+                      <p id="reveal-step-error" className="inspector-warning" role="status">
+                        Enter a whole number of 0 or greater.
+                      </p>
+                    )}
+                    <Button
+                      className="clear-step"
+                      onSelect={() => applyPresentationEdit({ field: "step", value: null })}
+                      disabled={!canEditSelection || !selectedElements.some(hasRevealStep)}
+                    >
+                      Clear step
+                    </Button>
+                    <p id="reveal-step-help" className="inspector-help">
+                      Step 0 and elements without a step are visible initially.
+                    </p>
+                  </section>
+                  <section className="inspector-control">
+                    <label htmlFor="semantic-style-role-input">Semantic style role</label>
+                    <p className="role-current">Current: {roleLabel}</p>
+                    <div className="role-form">
+                      <input
+                        id="semantic-style-role-input"
+                        aria-label="Semantic style role"
+                        type="text"
+                        autoCapitalize="none"
+                        autoCorrect="off"
+                        spellCheck={false}
+                        placeholder={roleLabel === "Mixed roles" ? "Mixed" : "e.g. primary"}
+                        value={roleDraft}
+                        disabled={!canEditSelection}
+                        aria-describedby="semantic-style-role-help"
+                        onChange={(event) => {
+                          const value = event.currentTarget.value;
+                          setRoleDraft(value);
+                          applyPresentationEdit({ field: "role", value: value.trim() === "" ? null : value });
+                        }}
+                      />
+                    </div>
+                    <Button
+                      className="clear-role"
+                      onSelect={() => applyPresentationEdit({ field: "role", value: null })}
+                      disabled={!canEditSelection || !selectedElements.some(hasSemanticStyleRole)}
+                    >
+                      Clear role
+                    </Button>
+                    <p id="semantic-style-role-help" className="inspector-help">
+                      A presentation stylesheet can style this role. The drawing's appearance stays the same.
+                    </p>
+                  </section>
+                  <section className="inspector-control">
+                    <Button
+                      className="clear-metadata"
+                      onSelect={() => applyPresentationEdit({ field: "all", value: null })}
+                      disabled={
+                        !canEditSelection ||
+                        !selectedElements.some((element) => element.customData?.figuro !== undefined)
+                      }
+                    >
+                      Clear presentation metadata
+                    </Button>
+                    <p className="inspector-help">
+                      Remove all presentation metadata from the selection. Other custom data is preserved.
+                    </p>
+                  </section>
+                  {!canEditSelection && (
+                    <p className="inspector-warning" role="status">
+                      {selectionCount === 1
+                        ? "This element uses an unsupported presentation metadata version. Its metadata is kept unchanged."
+                        : "This selection includes an unsupported presentation metadata version. Metadata is kept unchanged for the entire selection."}
+                    </p>
+                  )}
+                </>
+              )}
+            </aside>
+          </Sidebar>
+        </Excalidraw>
       </div>
-
-      <aside className="presentation-inspector" aria-label="Presentation inspector">
-        <header className="inspector-heading">
-          <div>
-            <div className="inspector-eyebrow">Figuro metadata</div>
-            <h1>Presentation</h1>
-          </div>
-          {selectionCount > 0 && <span className="selection-count">{selectionCount} selected</span>}
-        </header>
-
-        {selectionCount === 0 ? (
-          <p className="inspector-empty">
-            Select elements in the drawing to edit their reveal step and semantic style role.
-          </p>
-        ) : (
-          <>
-            <section className="inspector-control">
-              <label htmlFor="reveal-step-input">Reveal step</label>
-              <p className="step-current">
-                Current: {stepLabel}
-              </p>
-              <div className="step-form">
-                <input
-                  id="reveal-step-input"
-                  aria-label="Reveal step"
-                  type="number"
-                  min="0"
-                  step="1"
-                  inputMode="numeric"
-                  placeholder={stepLabel === "Mixed steps" ? "Mixed" : "e.g. 2"}
-                  value={stepDraft}
-                  disabled={!canEditSelection}
-                  onChange={(event) => setStepDraft(event.currentTarget.value)}
-                />
-                <button
-                  type="button"
-                  onClick={() =>
-                    canSetStep && applyPresentationEdit({ field: "step", value: parsedStepDraft })
-                  }
-                  disabled={!canSetStep}
-                >
-                  Set step
-                </button>
-              </div>
-              <button
-                className="clear-step"
-                type="button"
-                onClick={() => applyPresentationEdit({ field: "step", value: null })}
-                disabled={
-                  !canEditSelection || !selectedElements.some(hasRevealStep)
-                }
-              >
-                Clear step
-              </button>
-              <p className="inspector-help">
-                Step 0 and elements without a step are visible initially.
-              </p>
-            </section>
-            <section className="inspector-control">
-              <label htmlFor="semantic-style-role-input">Semantic style role</label>
-              <p className="role-current">
-                Current: {roleLabel}
-              </p>
-              <div className="role-form">
-                <input
-                  id="semantic-style-role-input"
-                  aria-label="Semantic style role"
-                  type="text"
-                  autoCapitalize="none"
-                  autoCorrect="off"
-                  spellCheck={false}
-                  placeholder={roleLabel === "Mixed roles" ? "Mixed" : "e.g. primary"}
-                  value={roleDraft}
-                  disabled={!canEditSelection}
-                  onChange={(event) => setRoleDraft(event.currentTarget.value)}
-                />
-                <button
-                  type="button"
-                  onClick={() =>
-                    canSetRole && applyPresentationEdit({ field: "role", value: roleDraft })
-                  }
-                  disabled={!canSetRole}
-                >
-                  Set role
-                </button>
-              </div>
-              <button
-                className="clear-role"
-                type="button"
-                onClick={() => applyPresentationEdit({ field: "role", value: null })}
-                disabled={
-                  !canEditSelection || !selectedElements.some(hasSemanticStyleRole)
-                }
-              >
-                Clear role
-              </button>
-              <p className="inspector-help">
-                A presentation stylesheet can style this role. The drawing's appearance stays the
-                same in Figuro.
-              </p>
-            </section>
-            <section className="inspector-control">
-              <button
-                className="clear-metadata"
-                type="button"
-                onClick={() => applyPresentationEdit({ field: "all", value: null })}
-                disabled={
-                  !canEditSelection ||
-                  !selectedElements.some((element) => element.customData?.figuro !== undefined)
-                }
-              >
-                Clear Figuro metadata
-              </button>
-              <p className="inspector-help">
-                Remove all Figuro metadata from the selection, including additional v1 fields.
-                Other custom data is preserved.
-              </p>
-            </section>
-            {!canEditSelection && (
-              <p className="inspector-warning" role="status">
-                {selectionCount === 1
-                  ? "This element uses an unsupported Figuro metadata version. Its metadata is kept unchanged."
-                  : "This selection includes an unsupported Figuro metadata version. Metadata is kept unchanged for the entire selection."}
-              </p>
-            )}
-          </>
-        )}
-      </aside>
     </div>
   );
 }

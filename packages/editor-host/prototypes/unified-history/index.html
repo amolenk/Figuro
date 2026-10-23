@@ -1,0 +1,8 @@
+<!doctype html>
+<html><head><meta charset="UTF-8"/><title>Shared history prototype</title><style>
+html,body,#root { margin:0; height:100%; font-family:system-ui,sans-serif; color:#1e1e1e; }
+header { padding:12px 20px; background:#f1f0ff; } h1 { margin:0 0 4px; font-size:18px; } p { margin:4px 0; font-size:13px; }
+.workspace { height:calc(100% - 88px); display:grid; grid-template-columns:minmax(400px,1fr) 340px; }
+aside { padding:16px; border-left:1px solid #ddd; overflow:auto; } button { margin:3px; padding:7px 10px; border:1px solid #b8b8ce; border-radius:6px; background:white; cursor:pointer; } button:disabled{opacity:.4;cursor:default} input{padding:8px;max-width:150px}
+.cards { margin:12px 0; } .card { border:1px solid #ccc; border-radius:8px; padding:8px;margin:6px 0; } pre { font-size:11px; white-space:pre-wrap;overflow-wrap:anywhere; } .scenarios button[aria-pressed=true]{background:#dedaff} .status{font-size:13px;margin:8px 0}
+</style></head><body><div id="root"></div><script>if(!location.port)window.EXCALIDRAW_ASSET_PATH="./excalidraw-assets/";</script><script type="module" src="./main.jsx"></script></body></html>

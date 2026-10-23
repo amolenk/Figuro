@@ -1,0 +1,12 @@
+{
+  "type": "excalidraw", "version": 2,
+  "elements": [
+    { "id": "top", "type": "rectangle", "x": 0, "y": 0, "width": 180, "height": 100, "roughness": 0, "seed": 1001 },
+    { "id": "bottom", "type": "rectangle", "x": 0, "y": 200, "width": 180, "height": 100, "roughness": 0, "seed": 1002 },
+    { "id": "peer", "type": "rectangle", "x": 300, "y": 0, "width": 198, "height": 100, "roughness": 0, "seed": 1003 },
+    { "id": "note", "type": "text", "x": 0, "y": 140, "width": 54, "height": 20, "text": "redirect", "fontSize": 16, "fontFamily": 2, "autoResize": false, "seed": 1004 },
+    { "id": "up", "type": "arrow", "x": 60, "y": 192, "width": 2, "height": 84, "points": [[0, 0], [2, -84]], "strokeColor": "#13579b", "roughness": 0, "roundness": { "type": 2 }, "seed": 1005, "endArrowhead": "arrow", "startBinding": { "elementId": "bottom", "focus": 0, "gap": 8 }, "endBinding": { "elementId": "top", "focus": 0, "gap": 8 }, "customData": { "figuro": { "v": 1, "step": 1 } } },
+    { "id": "down", "type": "arrow", "x": 120, "y": 108, "width": 2, "height": 84, "points": [[0, 0], [-2, 84]], "strokeColor": "#97531b", "roughness": 0, "roundness": { "type": 2 }, "seed": 1006, "endArrowhead": "arrow", "startBinding": { "elementId": "top", "focus": 0, "gap": 8 }, "endBinding": { "elementId": "bottom", "focus": 0, "gap": 8 } }
+  ],
+  "appState": { "viewBackgroundColor": "#ffffff" }, "files": {}
+}

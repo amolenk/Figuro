@@ -9,7 +9,7 @@ WORKDIR /workspace/packages/slidev
 ARG SLIDEV_VERSION=53.0.0
 ENV SLIDEV_VERSION=${SLIDEV_VERSION}
 RUN if [ "$SLIDEV_VERSION" != "53.0.0" ]; then pnpm add --save-dev "@slidev/cli@$SLIDEV_VERSION" "@slidev/types@$SLIDEV_VERSION"; fi
-RUN pnpm typecheck && pnpm test:package
+RUN pnpm typecheck && pnpm test:package && pnpm test:layout
 ARG FIGURO_PACKAGE_VERSION
 ENV FIGURO_PACKAGE_VERSION=${FIGURO_PACKAGE_VERSION}
 RUN node tests/prepare-consumer.mjs

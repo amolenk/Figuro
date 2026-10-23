@@ -144,3 +144,87 @@ layout: center
 ---
 
 # After styled groups
+
+---
+
+<FiguroDiagram src="./drawings/tall-reveals.excalidraw" />
+
+---
+
+<FiguroDiagram src="./drawings/tall-reveals.excalidraw" stylesheet="./styles/presentation.css" />
+
+---
+
+<FiguroDiagram src="./drawings/wide-reveals.excalidraw" />
+
+---
+
+<FiguroDiagram src="./drawings/wide-reveals.excalidraw" stylesheet="./styles/presentation.css" />
+
+---
+
+<FiguroDiagram src="./drawings/tall-static.excalidraw" />
+
+---
+
+# Diagram with a title
+
+<div class="diagram-area" style="width: 360px; height: 240px">
+  <FiguroDiagram src="./drawings/tall-static.excalidraw" stylesheet="./styles/presentation.css" />
+</div>
+
+---
+
+# After sizing examples
+
+---
+
+<div class="roughness-styled">
+  <FiguroDiagram src="./drawings/roughness.excalidraw" roughness="smooth" stylesheet="./styles/roughness.css" />
+</div>
+<div class="roughness-original">
+  <FiguroDiagram src="./drawings/roughness.excalidraw" />
+</div>
+<div class="roughness-colors-only">
+  <FiguroDiagram src="./drawings/roughness.excalidraw" stylesheet="./styles/presentation.css" />
+</div>
+
+<RoughnessReference />
+
+<div hidden class="roughness-variants">
+  <div data-roughness-case="tidy-default"><FiguroDiagram src="./drawings/roughness.excalidraw" layout="tidy" /></div>
+  <div data-roughness-case="structured-default"><FiguroDiagram src="./drawings/roughness.excalidraw" layout="structured" /></div>
+  <div data-roughness-case="structured-original"><FiguroDiagram src="./drawings/roughness.excalidraw" layout="structured" roughness="original" /></div>
+  <div data-roughness-case="tidy-smooth"><FiguroDiagram src="./drawings/roughness.excalidraw" layout="tidy" roughness="smooth" /></div>
+  <div data-roughness-case="original-sketchy"><FiguroDiagram src="./drawings/roughness.excalidraw" layout="original" roughness="sketchy" /></div>
+  <div data-roughness-case="structured-rough"><FiguroDiagram src="./drawings/roughness.excalidraw" layout="structured" roughness="rough" /></div>
+</div>
+
+---
+
+<FiguroDiagram src="./drawings/layout.excalidraw" layout="tidy" />
+
+---
+
+<FiguroDiagram src="./drawings/layout.excalidraw" layout="structured" text-sections />
+
+---
+
+<FiguroDiagram src="./drawings/layout.excalidraw" roughness="smooth" text-sections stylesheet="./styles/text-sections.css" />
+
+---
+
+<FiguroDiagram src="./drawings/layout.excalidraw" />
+
+---
+
+<FiguroDiagram src="./drawings/text-layout.excalidraw" layout="structured" text-sections />
+
+---
+
+<FiguroDiagram src="./drawings/parallel-connectors.excalidraw" layout="structured" />
+
+---
+
+<RoughnessControls />
+<RoughnessReference />

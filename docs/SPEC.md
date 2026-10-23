@@ -21,13 +21,17 @@ contract. Build and test instructions are in the [project overview](../README.md
   drawing's appearance, without a presentation stylesheet.
 
 Opening a drawing, changing its selection, panning, zooming, and switching tools
-do not change the source file. Typing in the Presentation inspector also leaves
-the drawing unchanged until you apply an edit.
+do not change the source file. Valid changes in the Presentation inspector apply
+immediately and are saved like other document edits.
 
 ## Use the Presentation inspector
 
 The **Presentation** inspector stays beside the canvas. It summarizes the current
-selection and edits reveal timing and semantic style roles.
+selection and edits reveal timing and semantic style roles, using the editor's
+controls and color theme. Hide it with its close button and show it again with
+the **Presentation** toolbar button. **⌘B** toggles it on macOS, matching VS Code's
+sidebar shortcut (**Ctrl+B** in the browser on other platforms). Hiding or showing
+the inspector preserves the selection and does not edit the drawing.
 
 ### Select elements
 
@@ -44,31 +48,31 @@ are displayed distinctly even though both are initially visible.
 
 ### Assign a reveal step
 
-Enter a non-negative whole number in **Reveal step**, then click **Set step**.
-The step is applied to every selected element.
+Enter a non-negative whole number in **Reveal step**. Valid changes apply
+immediately to every selected element.
 
 - No step, or step **0**, means the element is visible when the slide first appears.
 - Elements sharing a positive step appear together.
 - Positive steps reveal in ascending order. Gaps such as 1, 3, and 8 do not add
   empty clicks.
 
-Negative, fractional, empty, and unrepresentable integer inputs cannot be applied.
-Click **Clear step** to remove only the step from every selected element; roles
-and additional v1 metadata remain intact.
+Negative, fractional, and unrepresentable integer inputs cannot be applied.
+Empty the field or click **Clear step** to remove only the step from every selected
+element; roles and additional v1 metadata remain intact.
 
 ### Assign a semantic style role
 
 Enter a label such as `primary`, `supporting`, or `connection` in **Semantic style
-role**, then click **Set role**. The role is applied to every selected element.
+role**. Changes apply immediately to every selected element.
 Role labels are free-form and are matched by a presentation stylesheet.
 
 Setting a role does not change the drawing's colors, strokes, text, or geometry
-in Figuro. Click **Clear role** to remove only the role; reveal steps and
+in Figuro. Empty the field or click **Clear role** to remove only the role; reveal steps and
 additional v1 metadata remain intact.
 
-### Clear all Figuro metadata
+### Clear all presentation metadata
 
-Click **Clear Figuro metadata** to remove the selected elements' entire Figuro
+Click **Clear presentation metadata** to remove the selected elements' entire Figuro
 annotation, including step, role, schema version, and additional v1 fields.
 Custom data owned by other tools is retained. Elements without Figuro metadata
 are left unchanged.

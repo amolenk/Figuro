@@ -46,7 +46,7 @@ for a focused run.
 
 ## Start the Mac runner
 
-The Mac needs the app's normal toolchain: macOS 14+, Xcode 16+, Node.js 20+, pnpm,
+The Mac needs the app's normal toolchain: macOS 14+, Xcode 26+, Node.js 20+, pnpm,
 and XcodeGen. The runner also needs Python 3.9 or later. Xcode's command-line tools
 must point to the full Xcode installation.
 

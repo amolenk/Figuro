@@ -5,13 +5,14 @@ RESULT_BUNDLE_PATH ?=
 TEST_ARGS ?=
 TEST_TIMEOUT ?= 1200
 
-.PHONY: help install editor-host project build test test-build test-results test-setup run clean
+.PHONY: help install editor-host project build dmg test test-build test-results test-setup run clean
 
 help:
 	@echo "make install      Install JavaScript dependencies"
 	@echo "make editor-host  Build the Excalidraw editor host"
 	@echo "make project      Generate Figuro.xcodeproj with XcodeGen"
 	@echo "make build        Build the macOS app"
+	@echo "make dmg          Build a universal Release app and distributable DMG"
 	@echo "make test         Run macOS acceptance tests"
 	@echo "make test-results Export the latest existing Xcode test results"
 	@echo "make test-setup   Allow XCTest automation without repeated authentication"
@@ -32,6 +33,9 @@ project: editor-host
 build: project
 	xcodebuild -project apps/macos/Figuro.xcodeproj -scheme Figuro \
 		-configuration Debug -derivedDataPath apps/macos/build build
+
+dmg:
+	python3 scripts/build-dmg.py
 
 test:
 	FIGURO_TEST_ARGS='$(TEST_ARGS)' python3 scripts/ui-tests.py local \

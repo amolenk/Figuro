@@ -13,7 +13,11 @@ test("missing and unreadable selected stylesheets show path-specific development
   try {
     for (const kind of ["missing", "unreadable"]) {
       if (kind === "unreadable") await mkdir(path);
+      const failedSlide = page.waitForEvent("console", { predicate: message => message.type() === "error" && message.text().includes("slide failed to load") });
       await page.goto(`/1?case=${kind}`);
+      await failedSlide;
+      // Ensure Vite's overlay client is ready after the cold dependency crawl.
+      await page.reload();
       const message = page.locator("vite-error-overlay .message");
       await expect(message).toContainText('[Figuro] Stylesheet "./selected.css"');
       await expect(message).toContainText(path);

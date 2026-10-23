@@ -1,0 +1,78 @@
+name: macOS DMG
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/macos/**'
+      - 'packages/editor-host/**'
+      - 'packages/figuro-schema/**'
+      - 'scripts/build-dmg.py'
+      - 'scripts/tests/test_build_dmg.py'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - '.github/workflows/macos-dmg.yml'
+  pull_request:
+    paths:
+      - 'apps/macos/**'
+      - 'packages/editor-host/**'
+      - 'packages/figuro-schema/**'
+      - 'scripts/build-dmg.py'
+      - 'scripts/tests/test_build_dmg.py'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - '.github/workflows/macos-dmg.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: macos-dmg-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    # Standard runner: free build minutes for this public repository.
+    runs-on: macos-15
+    timeout-minutes: 30
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.11.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Test packaging script
+        run: python3 -m unittest discover -s scripts/tests -p test_build_dmg.py -v
+      - name: Build universal Release DMG (ad-hoc signed)
+        run: python3 scripts/build-dmg.py
+      - name: Verify mounted image contents
+        shell: bash
+        run: |
+          set -euo pipefail
+          image=(apps/macos/build/dmg/*.dmg)
+          mountpoint="$(mktemp -d)"
+          hdiutil attach "${image[0]}" -readonly -nobrowse -mountpoint "$mountpoint"
+          trap 'hdiutil detach "$mountpoint"' EXIT
+          test -f "$mountpoint/Figuro.app/Contents/Resources/EditorHost/index.html"
+          test -L "$mountpoint/Applications"
+          python3 -c 'import runpy, sys; runpy.run_path("scripts/build-dmg.py")["verify_architectures"](sys.argv[1])' \
+            "$mountpoint/Figuro.app/Contents/MacOS/Figuro"
+          codesign --verify --deep --strict --verbose=2 "$mountpoint/Figuro.app"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Figuro-macos-universal-${{ github.run_number }}
+          path: |
+            apps/macos/build/dmg/*.dmg
+            apps/macos/build/dmg/*.sha256
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0

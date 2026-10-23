@@ -1,0 +1,11 @@
+{
+  "type": "excalidraw", "version": 2,
+  "elements": [
+    { "id": "box", "type": "rectangle", "x": 0, "y": 0, "width": 180, "height": 100, "strokeColor": "#123456", "backgroundColor": "#e7f5ff", "fillStyle": "solid", "roughness": 0, "seed": 801, "boundElements": [{ "id": "label", "type": "text" }] },
+    { "id": "label", "type": "text", "x": 10, "y": 10, "width": 160, "height": 80, "strokeColor": "#123456", "text": "A long title that\nwraps\n— realm city picks", "originalText": "A long title that wraps\n— realm city picks", "fontSize": 20, "fontFamily": 2, "lineHeight": 1.25, "textAlign": "center", "verticalAlign": "middle", "containerId": "box", "seed": 802 },
+    { "id": "later-box", "type": "rectangle", "x": 240, "y": 4, "width": 175, "height": 96, "strokeColor": "#123456", "backgroundColor": "#d3f9d8", "fillStyle": "solid", "roughness": 0, "seed": 803, "boundElements": [{ "id": "later-label", "type": "text" }], "customData": { "figuro": { "v": 1, "step": 2 } } },
+    { "id": "later-label", "type": "text", "x": 300, "y": 40, "width": 50, "height": 25, "strokeColor": "#123456", "text": "Later", "fontSize": 20, "fontFamily": 2, "textAlign": "center", "verticalAlign": "middle", "containerId": "later-box", "seed": 804 },
+    { "id": "arrow", "type": "arrow", "x": 188, "y": 50, "width": 44, "height": 2, "points": [[0, 0], [44, 2]], "strokeColor": "#123456", "roughness": 0, "seed": 805, "endArrowhead": "arrow", "startBinding": { "elementId": "box", "focus": 0, "gap": 8 }, "endBinding": { "elementId": "later-box", "focus": 0, "gap": 8 } }
+  ],
+  "appState": { "viewBackgroundColor": "#ffffff" }, "files": {}
+}

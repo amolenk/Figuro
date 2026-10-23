@@ -18,6 +18,8 @@ npm install @figuro/slidev vue@^3.5.0 react@^19.2.0 react-dom@^19.2.0
 
 The first npm release is pending publication. Until it is available, you can use
 `pnpm add @figuro/slidev@file:../Figuro/packages/slidev` from a local checkout.
+Maintainers can publish from their terminal using the
+[release script and authentication instructions](https://github.com/amolenk/Figuro/blob/main/docs/SLIDEV_RELEASE.md#first-release-publish-from-your-terminal).
 For a new deck, install `@slidev/cli@53`, `@slidev/theme-default@0.25.0`, and
 `markdown-it@14.1.0` as development dependencies before starting Slidev.
 
@@ -47,6 +49,154 @@ literal local paths, such as `src="./drawings/architecture.excalidraw"`.
 Remote URLs, absolute paths, and Vue-bound paths such as `:src="drawingPath"` are
 unsupported because the addon validates assets during the build. Paths in
 template-only deck wrapper components use the same entry-Markdown directory.
+
+### Development-server errors
+
+The addon prebundles Excalidraw and its CommonJS dependencies, including React,
+for Slidev's lazy-loaded components.
+After updating the addon, restart Slidev with `pnpm exec slidev --force` to rebuild
+Vite's dependency cache if you previously saw a missing `Fragment` or `jsxs` export.
+
+After migrating from CSS roughness to the `roughness` attribute, an error such as
+`Cannot read properties of undefined (reading 'append')` in `resolveRenderRoughness`
+indicates that the browser is running the old CSS resolver with the updated
+component. Stop Slidev, restart with `pnpm exec slidev slides.md --force`, and
+hard-refresh the browser to load matching modules.
+
+If a local installation still reports missing exports, check that the installed
+`node_modules/@figuro/slidev/setup/vite-plugins.ts` contains `optimizeDeps`.
+Reinstalling a `file:` dependency copies your local checkout; that checkout must
+contain the updated setup code. You can also apply the rendering fix directly in
+the deck's `vite.config.ts` (merge into an existing configuration):
+
+```ts
+export default {
+  optimizeDeps: {
+    include: ["@figuro/slidev > @excalidraw/excalidraw"],
+  },
+};
+```
+
+Restart with `pnpm exec slidev slides.md --force` after adding this configuration.
+
+With Slidev 53.0.0, `Failed to patch FloatingVue` can also appear when its Twoslash
+integration resolves FloatingVue 5.4.0. This error does not prevent diagrams from
+rendering. To remove it with pnpm, add an override to `pnpm-workspace.yaml`
+next to the deck's `package.json` (create the file if needed):
+
+```yaml
+overrides:
+  floating-vue: 5.2.2
+```
+
+pnpm 12 no longer reads the `pnpm` field in `package.json`. Remove the old
+`pnpm.overrides` setting if present, then run `pnpm install` and restart Slidev
+with `--force`. A single-package deck does not need a `packages` list in the YAML.
+For npm, use a top-level `"overrides": { "floating-vue": "5.2.2" }` in
+`package.json` instead.
+
+## Layout
+
+Choose how the drawing's geometry is prepared for presentation:
+
+```vue
+<FiguroDiagram src="./drawings/architecture.excalidraw" layout="tidy" />
+<FiguroDiagram src="./drawings/architecture.excalidraw" layout="structured" />
+```
+
+| Mode | Behavior |
+| --- | --- |
+| `original` (default) | Retains authored positions, dimensions, and connectors. |
+| `tidy` | Aligns nearby centers or edges, smooths approximately equal gaps, and straightens nearly horizontal/vertical bound arrows. Shape dimensions stay unchanged. |
+| `structured` | Infers rows and columns, uses equal spacing and comparable box sizes, measures bound labels, distributes shared connector ports, and generates straight or orthogonal routes around boxes. |
+
+Original and Tidy retain authored stroke roughness. Structured defaults to smooth
+strokes. The `roughness` attribute overrides either default.
+
+Tidy uses an 8-drawing-unit tolerance for guides and gap differences. Structured
+clusters centers within 40% of the smaller dimension, compares shapes of the same
+kind whose dimensions differ by at most 25%, and uses a minimum 32-unit gap.
+Both modes preserve the inferred left/right and above/below arrangement.
+Conflicting alignments that would introduce overlaps with stationary content are
+discarded. Layout is deterministic and computed from the complete scene once;
+later reveals never move the composition.
+
+Layout supports unrotated, ungrouped rectangles, diamonds, and ellipses outside
+frames. Containment boundaries, grouped/framed/locked/rotated elements, freehand
+geometry, unbound annotations, and manually routed or elbow arrows retain their
+authored geometry. Owners attached to those manual arrows are also preserved.
+Only explicit arrow bindings establish connectivity; nearby annotations are not
+associated with connectors. Tidy preserves deliberate diagonals. Structured
+routes simple bound arrows around boxes and stationary content bounds with clearance, preserving endpoint
+sides; overlapping scenes without a clear route fall back to updated endpoints.
+Images and other content keep their positions. Rendering operates on copies and
+never saves these adjustments to the drawing.
+
+### Main text and subtext
+
+Enable `text-sections` to style two sections within one bound label:
+
+```vue
+<FiguroDiagram src="./drawings/architecture.excalidraw" layout="tidy" text-sections />
+```
+
+In the source label, the first authored line starting with an em dash followed by
+a space (`— `) begins the subtext section:
+
+```text
+Keycloak
+— realm city picks
+```
+
+The marker is removed from presentation output. Everything before it remains
+main text, even when wrapping; all following lines are subtext. Main text defaults
+to bold, and subtext to 78% of the authored font size with 75% fill opacity.
+No blank separator line is needed. Omit `text-sections` to render markers literally.
+This option works independently of Layout, including `original`.
+
+Both sections are measured using their actual rendered fonts, sizes, weights,
+line heights, and letter spacing before wrapping and centering. Structured can
+grow comparable boxes to fit; Original and Tidy fit the typographic block within
+the authored container. Shape and arrow labels retain their links, rotation,
+frame clipping, opacity, and atomic reveal timing. Labels remain one source text
+element; the native editor continues to display the authored plain text.
+
+Use the optional presentation stylesheet to customize the sections:
+
+```css
+[data-figuro-text-part="main"] { font-weight: 700; }
+[data-figuro-text-part="sub"] { fill: #687385; }
+```
+
+Font and size overrides should target these part hooks rather than positional
+selectors such as `text:nth-child(...)`, since wrapping changes the number of
+rendered lines. Text-section hooks are separate from semantic style roles.
+
+## Stroke roughness
+
+Set `roughness` on the component to choose strokes for the whole diagram:
+
+```vue
+<FiguroDiagram src="./drawings/architecture.excalidraw" roughness="smooth" />
+<FiguroDiagram src="./drawings/architecture.excalidraw" layout="structured" roughness="sketchy" />
+```
+
+| Value | Behavior |
+| --- | --- |
+| `original` | Preserves each element's authored roughness. |
+| `smooth` | Clean strokes (Excalidraw roughness 0). |
+| `sketchy` | Lightly hand-drawn strokes (Excalidraw roughness 1). |
+| `rough` | Strongly hand-drawn strokes (Excalidraw roughness 2). |
+
+When omitted, `roughness` defaults to `original` for Original and Tidy layout,
+and `smooth` for Structured. An explicit value always wins; use
+`layout="structured" roughness="original"` to retain the drawing's individual
+stroke styles while restructuring its layout.
+
+Roughness is applied to export copies before generating SVG paths in every reveal
+state. Changing the attribute re-exports the diagram without editing the source
+drawing. It does not change fill patterns or straighten freehand input. Invalid
+values produce a Figuro error; use the names above rather than numeric values.
 
 ## Presentation stylesheets
 
@@ -251,6 +401,29 @@ stylesheet must still load successfully.
 
 ## Rendering and compatibility
 
+### Diagram sizing
+
+The diagram fits within its container's width and height, preserving the drawing's
+proportions. Fitting includes every object, even those that appear on later clicks.
+The initial state therefore reserves space for later reveals; clicking changes
+visibility without moving or resizing the drawing. Tall or wide drawings scale
+down to fit the available area.
+
+On a diagram-only slide, use a layout with a full-height content area. When sharing
+a slide with a title or other content, allocate a bounded area for the diagram:
+
+```md
+# Architecture
+
+<div style="width: 100%; height: 360px">
+  <FiguroDiagram src="./drawings/architecture.excalidraw" />
+</div>
+```
+
+Sizing behaves the same with or without a presentation stylesheet.
+
+### Compatibility
+
 Every reveal state keeps the complete drawing's SVG frame, position, and scale.
 Click targets are registered while SVGs are still loading, so navigation does
 not depend on export timing.
@@ -286,19 +459,25 @@ From the repository root:
 
 ```sh
 pnpm typecheck
+pnpm --filter @figuro/slidev test:layout
 pnpm --filter @figuro/slidev test:docker
 ```
 
 The Docker command typechecks and inspects the npm tarball, installs from the
 lockfile into a Linux Playwright image, and
 runs Chromium against a development fixture, a production build hosted under
-`/fixture/`, a separate deck installed from the packed addon without addon dev
-dependencies, and an invalid-input fixture. It checks visible text, original
+`/fixture/`, development and production modes of a separate deck installed from
+the packed addon without addon dev dependencies, and an invalid-input fixture.
+It checks visible text, original
 colors/background, locally embedded fonts without external network access,
 single-slide navigation, shared reveal steps, numeric gaps, forward/backward
-navigation, stable framing, navigation during export, unchanged source bytes, development error messages,
+navigation, stable framing, fitting tall and wide drawings within the slide and
+allocated areas, window resizing, navigation during export, unchanged source bytes, development error messages,
 stylesheet application and isolation, CSS cascade behavior, and path-specific
-build failures (including actual Linux permission denial). Role fixtures verify
+build failures (including actual Linux permission denial). Roughness fixtures
+compare exported geometry with an independent Excalidraw export across reveals,
+verify named modes, layout defaults, reactive overrides, and unchanged source bytes.
+Role fixtures verify
 shape and text styles, unmatched-role fallback, original links, mixed scenes,
 and forward/backward reveal states.
 Metadata fixtures check element-level and file-wide warnings, original appearance
@@ -323,6 +502,16 @@ Painted output is compared with direct Excalidraw export and unstyled reveal
 states to verify native appearance and role fallback.
 The fixtures also exercise kebab-case component names, quoted Vue expressions,
 and template-only wrapper components.
+
+The packed consumer also runs ordinary-rendering and reveal-navigation checks
+against its development server with no additional Vite configuration, catching
+CommonJS module-loading failures that production bundling would hide.
+
+Layout checks cover inferred alignments, equal spacing and comparable dimensions,
+binding endpoints, shared ports, stationary obstacles, preserved special geometry,
+repeatable output, and unchanged input data. Browser fixtures exercise Tidy,
+Structured, opt-in sections with Original, CSS font-size/line-height overrides,
+wrapped titles, arrow masks/links, diamond-label insets, and stable reveals.
 
 For a focused iteration after building the image:
 

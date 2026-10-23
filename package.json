@@ -6,10 +6,13 @@
     "onlyBuiltDependencies": ["esbuild"]
   },
   "scripts": {
+    "release:slidev": "node scripts/release-slidev.mjs",
     "typecheck": "pnpm --filter @figuro/editor-host exec tsc --noEmit && pnpm --filter @figuro/slidev typecheck",
-    "test": "pnpm test:ui:runner:check && pnpm --filter @figuro/slidev test:package && pnpm --filter @figuro/slidev test:docker",
+    "test": "pnpm test:ui:runner:check && pnpm test:release:slidev && pnpm --filter @figuro/slidev test:layout && pnpm --filter @figuro/slidev test:package && pnpm --filter @figuro/slidev test:docker",
+    "test:release:slidev": "node --test scripts/tests/release-slidev.test.mjs",
     "build": "pnpm --filter @figuro/editor-host build",
     "dev": "pnpm --filter @figuro/editor-host dev",
+    "prototype:history": "node packages/editor-host/prototypes/unified-history/server.mjs",
     "test:ui:start": "python3 scripts/ui-tests.py start",
     "test:ui:status": "python3 scripts/ui-tests.py status",
     "test:ui:results": "python3 scripts/ui-tests.py results",

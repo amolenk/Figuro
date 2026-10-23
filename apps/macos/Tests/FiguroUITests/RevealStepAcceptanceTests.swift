@@ -5,6 +5,12 @@ final class RevealStepAcceptanceTests: XCTestCase {
     private var app: XCUIApplication!
     private var documentURL: URL!
 
+    private func makeApplication() -> XCUIApplication {
+        let application = XCUIApplication()
+        application.launchEnvironment["FIGURO_SKIP_DEFAULT_APP_REQUEST"] = "1"
+        return application
+    }
+
     // Async lifecycle hooks can share this suite's main-actor isolation.
     @MainActor
     override func setUp() async throws {
@@ -47,7 +53,7 @@ final class RevealStepAcceptanceTests: XCTestCase {
         try copyFixture(named: "unsupported-version")
         let originalContents = try Data(contentsOf: documentURL)
 
-        app = XCUIApplication()
+        app = makeApplication()
         app.launch()
         openDocument()
         selectOnlyElement()
@@ -55,12 +61,11 @@ final class RevealStepAcceptanceTests: XCTestCase {
         let warning = editor.staticTexts.matching(
             NSPredicate(
                 format: "value CONTAINS %@ OR label CONTAINS %@",
-                "unsupported Figuro metadata version", "unsupported Figuro metadata version")
+                "unsupported presentation metadata version", "unsupported presentation metadata version")
         ).firstMatch
         XCTAssertTrue(warning.waitForExistence(timeout: 5))
-        XCTAssertFalse(editor.buttons["Set step"].isEnabled)
+        XCTAssertFalse(revealStepField.isEnabled)
         XCTAssertFalse(editor.buttons["Clear step"].isEnabled)
-        XCTAssertFalse(editor.buttons["Set role"].isEnabled)
         XCTAssertFalse(editor.buttons["Clear role"].isEnabled)
         XCTAssertFalse(semanticStyleRoleField.isEnabled)
 
@@ -73,7 +78,7 @@ final class RevealStepAcceptanceTests: XCTestCase {
 
     func testSelectedElementRevealStepSurvivesSaveAndReopenAndCanBeCleared() throws {
         let originalContents = try Data(contentsOf: documentURL)
-        app = XCUIApplication()
+        app = makeApplication()
         app.launch()
         openDocument()
         selectOnlyElement()
@@ -87,12 +92,11 @@ final class RevealStepAcceptanceTests: XCTestCase {
         XCTAssertTrue(stepField.waitForExistence(timeout: 10))
 
         replaceRevealStep(with: "-1")
-        XCTAssertFalse(editor.buttons["Set step"].isEnabled)
+        XCTAssertTrue(editor.staticTexts["Enter a whole number of 0 or greater."].exists)
         replaceRevealStep(with: "1.5")
-        XCTAssertFalse(editor.buttons["Set step"].isEnabled)
+        XCTAssertTrue(editor.staticTexts["Enter a whole number of 0 or greater."].exists)
         replaceRevealStep(with: "0")
-        XCTAssertTrue(editor.buttons["Set step"].isEnabled)
-        editor.buttons["Set step"].click()
+        XCTAssertFalse(editor.staticTexts["Enter a whole number of 0 or greater."].exists)
 
         saveDocument()
         XCTAssertTrue(waitForSavedStep(0))
@@ -101,7 +105,6 @@ final class RevealStepAcceptanceTests: XCTestCase {
             editor.staticTexts["Step 0 and elements without a step are visible initially."].exists)
 
         replaceRevealStep(with: "3")
-        editor.buttons["Set step"].click()
 
         saveDocument()
         XCTAssertTrue(waitForSavedStep(3))
@@ -119,13 +122,12 @@ final class RevealStepAcceptanceTests: XCTestCase {
     }
 
     func testSemanticStyleRoleSurvivesSaveAndReopenAndCanBeClearedIndependently() throws {
-        app = XCUIApplication()
+        app = makeApplication()
         app.launch()
         openDocument()
         selectOnlyElement()
 
         replaceRevealStep(with: "3")
-        editor.buttons["Set step"].click()
         saveDocument()
         XCTAssertTrue(waitForSavedStep(3))
         let originalAppearance = try XCTUnwrap(savedElementAppearance)
@@ -135,8 +137,6 @@ final class RevealStepAcceptanceTests: XCTestCase {
         XCTAssertFalse(editor.buttons["Clear role"].isEnabled)
         replaceSemanticStyleRole(with: "primary")
         XCTAssertEqual(semanticStyleRoleField.value as? String, "primary")
-        XCTAssertTrue(editor.buttons["Set role"].isEnabled)
-        editor.buttons["Set role"].click()
         XCTAssertTrue(editor.staticTexts["Current: Role primary"].exists)
         saveDocument()
         XCTAssertTrue(waitForSavedRole("primary"))
@@ -150,7 +150,6 @@ final class RevealStepAcceptanceTests: XCTestCase {
         XCTAssertTrue(editor.staticTexts["Current: Role primary"].exists)
 
         replaceSemanticStyleRole(with: "supporting")
-        editor.buttons["Set role"].click()
         saveDocument()
         XCTAssertTrue(waitForSavedRole("supporting"))
         assertUnrelatedAndUnknownMetadataArePreserved(step: 3)
@@ -162,7 +161,6 @@ final class RevealStepAcceptanceTests: XCTestCase {
         XCTAssertTrue(waitForSavedStep(nil))
         XCTAssertEqual(savedElementMetadata?.figuro["role"] as? String, "supporting")
         replaceRevealStep(with: "3")
-        editor.buttons["Set step"].click()
         saveDocument()
         XCTAssertTrue(waitForSavedStep(3))
         XCTAssertEqual(savedElementMetadata?.figuro["role"] as? String, "supporting")
@@ -179,7 +177,6 @@ final class RevealStepAcceptanceTests: XCTestCase {
         XCTAssertEqual(semanticStyleRoleField.value as? String, "")
         XCTAssertTrue(editor.staticTexts["Current: No role"].exists)
         XCTAssertFalse(editor.buttons["Clear role"].isEnabled)
-        XCTAssertFalse(editor.buttons["Set role"].isEnabled)
         XCTAssertEqual(revealStepField.value as? String, "3")
     }
 
@@ -193,24 +190,23 @@ final class RevealStepAcceptanceTests: XCTestCase {
         try JSONSerialization.data(withJSONObject: document).write(to: documentURL)
         let originalContents = try Data(contentsOf: documentURL)
 
-        app = XCUIApplication()
+        app = makeApplication()
         app.launch()
         openDocument()
         selectOnlyElement()
         XCTAssertTrue(editor.staticTexts["Current: No role"].exists)
-        XCTAssertFalse(editor.buttons["Set role"].isEnabled)
-        replaceSemanticStyleRole(with: "primary")
         XCTAssertTrue(staysUnchangedForAutosaveWindow(originalContents))
-        editor.buttons["Set role"].click()
+        replaceSemanticStyleRole(with: "primary")
         saveDocument()
         XCTAssertTrue(waitForSavedRole("primary"))
         let originalAppearance = try XCTUnwrap(savedElementAppearance)
         XCTAssertEqual(savedElementMetadata?.figuro["v"] as? Int, 1)
         XCTAssertNil(savedElementMetadata?.figuro["step"])
 
-        // Reapplying the same role is a no-op, including Excalidraw's version fields.
+        // Focusing a field without editing is a view-only action.
         let assignedContents = try Data(contentsOf: documentURL)
-        editor.buttons["Set role"].click()
+        semanticStyleRoleField.click()
+        revealStepField.click()
         saveDocument()
         XCTAssertTrue(staysUnchangedForAutosaveWindow(assignedContents))
 
@@ -233,7 +229,7 @@ final class RevealStepAcceptanceTests: XCTestCase {
         try copyFixture(named: "mixed-selection")
         let originalContents = try Data(contentsOf: documentURL)
 
-        app = XCUIApplication()
+        app = makeApplication()
         app.launch()
         openDocument()
         selectAllElements()
@@ -243,8 +239,8 @@ final class RevealStepAcceptanceTests: XCTestCase {
         XCTAssertTrue(editor.staticTexts["Current: Mixed roles"].exists)
         XCTAssertEqual(revealStepField.value as? String, "")
         XCTAssertEqual(semanticStyleRoleField.value as? String, "")
-        XCTAssertFalse(editor.buttons["Set step"].isEnabled)
-        XCTAssertFalse(editor.buttons["Set role"].isEnabled)
+        XCTAssertTrue(revealStepField.isEnabled)
+        XCTAssertTrue(semanticStyleRoleField.isEnabled)
         XCTAssertTrue(editor.buttons["Clear step"].isEnabled)
         XCTAssertTrue(editor.buttons["Clear role"].isEnabled)
         XCTAssertTrue(staysUnchangedForAutosaveWindow(originalContents))
@@ -254,13 +250,12 @@ final class RevealStepAcceptanceTests: XCTestCase {
         try FileManager.default.removeItem(at: documentURL)
         try copyFixture(named: "mixed-selection")
         let originalElements = try XCTUnwrap(savedElements)
-        app = XCUIApplication()
+        app = makeApplication()
         app.launch()
         openDocument()
         selectAllElements()
 
         replaceRevealStep(with: "3")
-        editor.buttons["Set step"].click()
         saveDocument()
         XCTAssertTrue(waitForSavedElements { elements in
             elements.allSatisfy { self.metadata(of: $0)?["step"] as? Int == 3 }
@@ -270,14 +265,13 @@ final class RevealStepAcceptanceTests: XCTestCase {
         XCTAssertTrue(editor.staticTexts["Current: Mixed roles"].exists)
 
         replaceSemanticStyleRole(with: "shared")
-        editor.buttons["Set role"].click()
         saveDocument()
         XCTAssertTrue(waitForSelectionMetadata(step: 3, role: "shared"))
         assertSelectionDataPreserved(from: originalElements, preserving: ["futureField"])
 
         let assignedContents = try Data(contentsOf: documentURL)
-        editor.buttons["Set step"].click()
-        editor.buttons["Set role"].click()
+        revealStepField.click()
+        semanticStyleRoleField.click()
         saveDocument()
         XCTAssertTrue(staysUnchangedForAutosaveWindow(assignedContents))
 
@@ -293,7 +287,6 @@ final class RevealStepAcceptanceTests: XCTestCase {
         XCTAssertFalse(editor.buttons["Clear step"].isEnabled)
 
         replaceRevealStep(with: "5")
-        editor.buttons["Set step"].click()
         editor.buttons["Clear role"].click()
         saveDocument()
         XCTAssertTrue(waitForSelectionMetadata(step: 5, role: nil))
@@ -311,12 +304,12 @@ final class RevealStepAcceptanceTests: XCTestCase {
         try FileManager.default.removeItem(at: documentURL)
         try copyFixture(named: "mixed-selection")
         let originalElements = try XCTUnwrap(savedElements)
-        app = XCUIApplication()
+        app = makeApplication()
         app.launch()
         openDocument()
         selectAllElements()
 
-        let clearAll = editor.buttons["Clear Figuro metadata"]
+        let clearAll = editor.buttons["Clear presentation metadata"]
         XCTAssertTrue(clearAll.waitForExistence(timeout: 5))
         XCTAssertTrue(clearAll.isEnabled)
         clearAll.click()
@@ -343,7 +336,7 @@ final class RevealStepAcceptanceTests: XCTestCase {
         try FileManager.default.removeItem(at: documentURL)
         try copyFixture(named: "mixed-selection")
         let originals = try XCTUnwrap(savedElements)
-        app = XCUIApplication()
+        app = makeApplication()
         app.launch()
         openDocument()
         // The arrow crosses the fitted scene's center, between the two shapes.
@@ -352,9 +345,7 @@ final class RevealStepAcceptanceTests: XCTestCase {
         XCTAssertEqual(revealStepField.value as? String, "4")
         XCTAssertEqual(semanticStyleRoleField.value as? String, "supporting")
         replaceRevealStep(with: "8")
-        editor.buttons["Set step"].click()
         replaceSemanticStyleRole(with: "connection")
-        editor.buttons["Set role"].click()
         saveDocument()
         XCTAssertTrue(waitForSavedElements { elements in
             guard let arrow = elements.first(where: { $0["id"] as? String == "mixed-arrow" }) else { return false }
@@ -372,7 +363,7 @@ final class RevealStepAcceptanceTests: XCTestCase {
         XCTAssertTrue(editor.staticTexts["1 selected"].waitForExistence(timeout: 5))
         XCTAssertEqual(revealStepField.value as? String, "8")
         XCTAssertEqual(semanticStyleRoleField.value as? String, "connection")
-        editor.buttons["Clear Figuro metadata"].click()
+        editor.buttons["Clear presentation metadata"].click()
         saveDocument()
         XCTAssertTrue(waitForSavedElements { elements in
             guard let arrow = elements.first(where: { $0["id"] as? String == "mixed-arrow" }) else { return false }
@@ -390,7 +381,7 @@ final class RevealStepAcceptanceTests: XCTestCase {
         document["elements"] = elements
         try JSONSerialization.data(withJSONObject: document).write(to: documentURL)
         let originalContents = try Data(contentsOf: documentURL)
-        app = XCUIApplication()
+        app = makeApplication()
         app.launch()
         openDocument()
         selectAllElements()
@@ -398,7 +389,7 @@ final class RevealStepAcceptanceTests: XCTestCase {
         XCTAssertTrue(editor.staticTexts["Current: Mixed roles"].exists)
         XCTAssertFalse(revealStepField.isEnabled)
         XCTAssertFalse(semanticStyleRoleField.isEnabled)
-        for name in ["Set step", "Set role", "Clear step", "Clear role", "Clear Figuro metadata"] {
+        for name in ["Clear step", "Clear role", "Clear presentation metadata"] {
             XCTAssertFalse(editor.buttons[name].isEnabled)
         }
         saveDocument()
@@ -415,6 +406,59 @@ final class RevealStepAcceptanceTests: XCTestCase {
             let saved = savedElements?.first(where: { $0["id"] as? String == original["id"] as? String })
             XCTAssertEqual(saved?["customData"] as? NSDictionary, original["customData"] as? NSDictionary)
         }
+    }
+
+    func testPresentationSidebarCanBeHiddenAndToggledWithCommandBWithoutEditingDocument() throws {
+        let originalContents = try Data(contentsOf: documentURL)
+        app = makeApplication()
+        app.launch()
+        openDocument()
+        selectOnlyElement()
+
+        let toggle = editor.buttons["Toggle presentation sidebar"]
+        XCTAssertTrue(toggle.waitForExistence(timeout: 5))
+        // The editor's standard sidebar close control is available as well.
+        editor.buttons["Close"].click()
+        XCTAssertFalse(revealStepField.exists)
+        toggle.click()
+        XCTAssertTrue(revealStepField.waitForExistence(timeout: 5))
+
+        // The shortcut also works while an inspector field has focus.
+        revealStepField.click()
+        app.typeKey("b", modifierFlags: .command)
+        XCTAssertFalse(revealStepField.exists)
+        app.typeKey("b", modifierFlags: .command)
+        XCTAssertTrue(revealStepField.waitForExistence(timeout: 5))
+        XCTAssertTrue(editor.staticTexts["1 selected"].exists)
+        XCTAssertFalse(editor.buttons["Set step"].exists)
+        XCTAssertFalse(editor.buttons["Set role"].exists)
+        XCTAssertTrue(staysUnchangedForAutosaveWindow(originalContents))
+    }
+
+    func testEmptyFieldsClearPresentationMetadataImmediately() throws {
+        app = makeApplication()
+        app.launch()
+        openDocument()
+        selectOnlyElement()
+        replaceRevealStep(with: "3")
+        replaceSemanticStyleRole(with: "primary")
+        saveDocument()
+        XCTAssertTrue(waitForSavedRole("primary"))
+        XCTAssertTrue(waitForSavedStep(3))
+
+        revealStepField.click()
+        revealStepField.typeKey("a", modifierFlags: .command)
+        revealStepField.typeKey(XCUIKeyboardKey.delete.rawValue, modifierFlags: [])
+        saveDocument()
+        XCTAssertTrue(waitForSavedStep(nil))
+        XCTAssertEqual(savedElementMetadata?.figuro["role"] as? String, "primary")
+
+        semanticStyleRoleField.click()
+        semanticStyleRoleField.typeKey("a", modifierFlags: .command)
+        semanticStyleRoleField.typeKey(XCUIKeyboardKey.delete.rawValue, modifierFlags: [])
+        saveDocument()
+        XCTAssertTrue(waitForSavedRole(nil))
+        assertUnrelatedAndUnknownMetadataArePreserved(step: nil)
     }
 
     private func metadata(of element: [String: Any]) -> [String: Any]? {
@@ -521,7 +565,7 @@ final class RevealStepAcceptanceTests: XCTestCase {
         XCTAssertTrue(
             editor.waitForExistence(timeout: 10),
             "Opened fixture window was not found: \(documentURL.lastPathComponent)")
-        XCTAssertTrue(editor.staticTexts["Presentation"].waitForExistence(timeout: 10))
+        XCTAssertTrue(editor.buttons["Toggle presentation sidebar"].waitForExistence(timeout: 10))
     }
 
     private func selectOnlyElement() {
@@ -533,12 +577,12 @@ final class RevealStepAcceptanceTests: XCTestCase {
         // Select All is independent of the zoom
         // and pan applied while the document window settles or joins a tab group.
         app.typeKey("a", modifierFlags: .command)
-        XCTAssertTrue(editor.buttons["Set step"].waitForExistence(timeout: 5))
+        XCTAssertTrue(revealStepField.waitForExistence(timeout: 5))
     }
 
     private func focusCanvasCenter() {
         XCTAssertTrue(editor.waitForExistence(timeout: 10))
-        let inspectorWidth = min(max(editor.frame.width * 0.23, 240), 320)
+        let inspectorWidth = 294.0
         let canvasCenter = (editor.frame.width - inspectorWidth) / 2
         editor.coordinate(
             withNormalizedOffset: CGVector(dx: canvasCenter / editor.frame.width, dy: 0.5)
@@ -548,8 +592,8 @@ final class RevealStepAcceptanceTests: XCTestCase {
     private func switchToolsAndPan() {
         editor.typeKey("h", modifierFlags: [])
 
-        let start = editor.coordinate(withNormalizedOffset: CGVector(dx: 0.7, dy: 0.8))
-        let end = editor.coordinate(withNormalizedOffset: CGVector(dx: 0.74, dy: 0.8))
+        let start = editor.coordinate(withNormalizedOffset: CGVector(dx: 0.65, dy: 0.8))
+        let end = editor.coordinate(withNormalizedOffset: CGVector(dx: 0.69, dy: 0.8))
         start.press(forDuration: 0.1, thenDragTo: end)
 
         editor.typeKey("v", modifierFlags: [])

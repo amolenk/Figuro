@@ -11,7 +11,12 @@ const run = (command: string, args: string[], options = {}) => exec(command, arg
   .then(() => ({ failed: false, output: "" }), error => ({ failed: true, output: `${error.stdout}\n${error.stderr}` }));
 
 test("invalid Excalidraw input shows a path-specific development error", async ({ page }) => {
+  const failedSlide = page.waitForEvent("console", { predicate: message => message.type() === "error" && message.text().includes("slide failed to load") });
   await page.goto("/1");
+  await failedSlide;
+  // A cold dependency crawl can deliver the error before Vite's overlay client
+  // is ready. Reload after the first failed import to verify the actual overlay.
+  await page.reload();
   const overlay = page.locator("vite-error-overlay");
   await expect(overlay).toBeAttached();
   await expect(overlay.locator(".message")).toContainText("[Figuro]");
@@ -61,6 +66,21 @@ test("a production build fails with the selected path for missing, unreadable, a
       expect(result.output).toContain("EACCES");
       expect(result.output).toContain(path);
     }
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("a production build rejects numeric roughness with the supported attribute names", async () => {
+  const directory = await mkdtemp(join(addon, "tests/fixtures/build-errors-"));
+  try {
+    await writeFile(join(directory, "drawing.excalidraw"), await readFile("tests/fixtures/deck/drawings/roughness.excalidraw"));
+    await writeFile(join(directory, "slides.md"), `---\ntheme: default\naddons:\n  - ${JSON.stringify(addon)}\nfonts:\n  provider: none\n---\n\n<FiguroDiagram src="./drawing.excalidraw" roughness="0" />\n`);
+    const result = await run("pnpm", ["exec", "slidev", "build", join(directory, "slides.md"), "--out", join(directory, "dist")]);
+    expect(result.failed).toBe(true);
+    expect(result.output).toContain('[Figuro]');
+    expect(result.output).toContain('Unknown roughness "0"');
+    expect(result.output).toContain("Expected original, smooth, sketchy, rough.");
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

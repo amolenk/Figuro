@@ -39,11 +39,12 @@ The addon is ready for its first public npm release; registry publication is
 pending. See the [addon guide](packages/slidev/README.md) for installation,
 `FiguroDiagram` authoring, supported metadata, and complex-scene behavior, and
 the [release procedure](docs/SLIDEV_RELEASE.md) for publishing and clean-consumer
-verification. Slidev 53 requires Node.js 22.12 or later.
+verification using `pnpm release:slidev prepare`, `publish`, and `verify`.
+Slidev 53 requires Node.js 22.12 or later.
 
 ## Requirements
 
-- macOS 14 or later, Xcode 16 or later
+- macOS 14 or later, Xcode 26 or later (for the Icon Composer app icon)
 - Node.js 20+, pnpm
 - XcodeGen (`brew install xcodegen`)
 
@@ -55,6 +56,20 @@ make run
 ```
 
 The app is ad-hoc signed for local use. There is no Apple Developer account involved and the App Sandbox is off.
+
+On its first launch, Figuro requests to become the default app for `.excalidraw`
+drawings. Accept the macOS confirmation if one appears. To retry later, choose
+**Figuro → Make Default for .excalidraw…**. The automatic request runs only once,
+so subsequent launches respect a declined request or a later change of default.
+
+Build a distributable universal DMG with `make dmg`. The
+[Mac release guide](docs/MACOS_RELEASE.md) covers local builds, the GitHub Actions
+macOS build, downloading artifacts, and first-time installation. Standard macOS
+runner build minutes are free for this public repository.
+
+For a single checkout shared between macOS and Docker Sandboxes, follow
+[Sandbox development](docs/SANDBOX_DEVELOPMENT.md) to give Linux private
+dependencies and build output before installing or building inside the sandbox.
 
 Run the macOS acceptance suite with `make test`.
 Each run exports its verdict and artifact paths to
