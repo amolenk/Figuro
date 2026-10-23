@@ -1,0 +1,8 @@
+@font-face {
+  font-family: "Presentation font";
+  src: local("Liberation Sans");
+}
+
+svg text {
+  font-family: "Presentation font", monospace;
+}

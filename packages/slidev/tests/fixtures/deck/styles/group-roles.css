@@ -1,0 +1,17 @@
+[data-figuro-role="member"] {
+  opacity: 0.1;
+  filter: grayscale(1);
+}
+
+[data-figuro-role="member"] [fill]:not([fill="none"]) {
+  fill: #000000;
+}
+
+[data-figuro-role="member"] [stroke] {
+  stroke: #ff00ff;
+}
+
+[data-figuro-role="label"] text {
+  fill: #ff00ff;
+  font-size: 40px;
+}

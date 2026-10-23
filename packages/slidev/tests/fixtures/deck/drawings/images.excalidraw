@@ -1,0 +1,52 @@
+{
+  "type": "excalidraw",
+  "version": 2,
+  "source": "https://excalidraw.com",
+  "elements": [
+    {
+      "id": "initial-image", "type": "image", "x": 0, "y": 0, "width": 80, "height": 80,
+      "angle": 0, "strokeColor": "#000000", "backgroundColor": "transparent",
+      "fillStyle": "solid", "strokeWidth": 1, "strokeStyle": "solid", "roughness": 0,
+      "opacity": 100, "groupIds": [], "frameId": null, "index": "a0", "roundness": null,
+      "seed": 101, "version": 1, "versionNonce": 101, "isDeleted": false,
+      "boundElements": null, "updated": 1, "link": null, "locked": false,
+      "fileId": "quadrants", "status": "saved", "scale": [1, 1], "crop": null
+    },
+    {
+      "id": "cropped-image", "type": "image", "x": 120, "y": 0, "width": 40, "height": 80,
+      "angle": 0, "strokeColor": "#000000", "backgroundColor": "transparent",
+      "fillStyle": "solid", "strokeWidth": 1, "strokeStyle": "solid", "roughness": 0,
+      "opacity": 100, "groupIds": [], "frameId": null, "index": "a1", "roundness": null,
+      "seed": 102, "version": 1, "versionNonce": 102, "isDeleted": false,
+      "boundElements": null, "updated": 1, "link": null, "locked": false,
+      "fileId": "quadrants", "status": "saved", "scale": [1, 1],
+      "crop": { "x": 40, "y": 0, "width": 40, "height": 80, "naturalWidth": 80, "naturalHeight": 80 },
+      "customData": { "figuro": { "v": 1, "step": 2 } }
+    },
+    {
+      "id": "transformed-image", "type": "image", "x": 240, "y": 0, "width": 80, "height": 80,
+      "angle": 1.5707963267948966, "strokeColor": "#000000", "backgroundColor": "transparent",
+      "fillStyle": "solid", "strokeWidth": 1, "strokeStyle": "solid", "roughness": 0,
+      "opacity": 100, "groupIds": [], "frameId": null, "index": "a2", "roundness": null,
+      "seed": 103, "version": 1, "versionNonce": 103, "isDeleted": false,
+      "boundElements": null, "updated": 1, "link": null, "locked": false,
+      "fileId": "quadrants", "status": "saved", "scale": [-1, 1], "crop": null,
+      "customData": { "figuro": { "v": 1, "step": 9, "role": "photo" } }
+    },
+    {
+      "id": "deleted-image", "type": "image", "x": 500, "y": 0, "width": 80, "height": 80,
+      "angle": 0, "opacity": 100, "groupIds": [], "frameId": null, "index": "a3",
+      "seed": 104, "version": 1, "versionNonce": 104, "isDeleted": true,
+      "fileId": null, "status": "error", "scale": [1, 1], "crop": null,
+      "customData": { "figuro": { "v": 1, "step": 99 } }
+    }
+  ],
+  "appState": { "viewBackgroundColor": "#ffffff" },
+  "files": {
+    "quadrants": {
+      "id": "quadrants", "mimeType": "image/svg+xml", "created": 1,
+      "dataURL": "data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20width=%2280%22%20height=%2280%22%3E%3Cpath%20fill=%22%23ff0000%22%20d=%22M0%200h40v40H0z%22/%3E%3Cpath%20fill=%22%2300ff00%22%20d=%22M40%200h40v40H40z%22/%3E%3Cpath%20fill=%22%230000ff%22%20d=%22M0%2040h40v40H0z%22/%3E%3Cpath%20fill=%22%23ffff00%22%20d=%22M40%2040h40v40H40z%22/%3E%3C/svg%3E"
+    },
+    "unused-invalid-record": { "dataURL": null }
+  }
+}

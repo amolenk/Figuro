@@ -1,0 +1,4 @@
+[data-figuro-role="photo"] {
+  opacity: 0 !important;
+  filter: invert(1);
+}

@@ -1,0 +1,5 @@
+@import "./image-roles.css";
+
+svg use {
+  filter: grayscale(1);
+}

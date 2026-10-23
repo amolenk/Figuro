@@ -1,0 +1,136 @@
+.figuro-workspace,
+.figuro-canvas {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+
+.excalidraw .presentation-toggle {
+  gap: 0.5rem;
+  width: auto;
+  padding: 0 0.75rem;
+  font-size: 0.75rem;
+}
+
+.excalidraw .presentation-toggle:focus-visible,
+.excalidraw .presentation-inspector button:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.excalidraw .presentation-inspector {
+  color: var(--color-on-surface);
+  font-family: var(--ui-font);
+  font-size: 0.75rem;
+}
+
+.inspector-heading h2 {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.inspector-content {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 1rem 0.75rem;
+}
+
+.selection-count {
+  margin: 0 0 1rem;
+  color: var(--color-on-surface);
+  font-size: 0.75rem;
+}
+
+.inspector-empty {
+  margin: 0;
+  color: var(--color-gray-60);
+  line-height: 1.5;
+}
+
+.inspector-control + .inspector-control {
+  margin-top: 1.25rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--sidebar-border-color);
+}
+
+.inspector-control > label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.step-current,
+.role-current {
+  margin: 0 0 0.5rem;
+  color: var(--color-gray-60);
+  font-size: 0.75rem;
+  overflow-wrap: anywhere;
+}
+
+.step-form input,
+.role-form input {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  height: 2rem;
+  padding: 0 0.625rem;
+  border: 1px solid transparent;
+  border-radius: var(--border-radius-md);
+  background: var(--color-surface-mid);
+  color: var(--color-on-surface);
+  font: inherit;
+}
+
+.step-form input:hover,
+.role-form input:hover {
+  border-color: var(--color-border-outline-variant);
+}
+
+.step-form input:focus,
+.role-form input:focus {
+  border-color: var(--color-primary);
+  outline: 1px solid var(--color-primary);
+}
+
+.step-form input[aria-invalid="true"] {
+  border-color: var(--color-danger);
+}
+
+.step-form input:disabled,
+.role-form input:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.excalidraw .clear-step,
+.excalidraw .clear-role,
+.excalidraw .clear-metadata {
+  width: auto;
+  height: 2rem;
+  padding: 0 0.625rem;
+  font-size: 0.75rem;
+}
+
+.excalidraw .clear-step,
+.excalidraw .clear-role {
+  margin-top: 0.5rem;
+}
+
+.inspector-help,
+.inspector-warning {
+  margin: 0.75rem 0 0;
+  color: var(--color-gray-60);
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+.inspector-warning {
+  padding: 0.5rem;
+  border-radius: var(--border-radius-md);
+  background: var(--color-warning-background);
+  color: var(--color-warning-color);
+}

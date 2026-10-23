@@ -1,0 +1,491 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Figuro · Presentation Inspector Prototype</title>
+    <!--
+      Throwaway UI exploration for “Prototype Figuro's presentation metadata inspector”.
+      Three structurally different selection-based flows are switchable with ?variant=A|B|C.
+      Open this file directly in a browser; all state is in memory.
+    -->
+    <style>
+      :root {
+        color-scheme: light;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        color: #27272a;
+        background: #f0f0f2;
+        font-synthesis: none;
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; min-width: 760px; min-height: 100vh; padding: 28px 24px 92px; }
+      button, input, select { font: inherit; }
+      button { cursor: pointer; }
+      .window {
+        width: min(1420px, 100%);
+        min-height: 760px;
+        margin: 0 auto;
+        overflow: hidden;
+        border: 1px solid #d8d8dc;
+        border-radius: 14px;
+        background: #fff;
+        box-shadow: 0 16px 50px #27272a17;
+      }
+      .titlebar {
+        height: 48px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 17px;
+        border-bottom: 1px solid #e5e5e8;
+        background: #fafafa;
+        color: #62626a;
+        font-size: 12px;
+      }
+      .traffic { display: flex; gap: 7px; }
+      .traffic i { width: 11px; height: 11px; border-radius: 50%; background: #ff5f57; }
+      .traffic i:nth-child(2) { background: #febc2e; }
+      .traffic i:nth-child(3) { background: #28c840; }
+      .document-name { font-weight: 600; color: #44444b; }
+      .toolbar {
+        height: 56px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 20px;
+        border-bottom: 1px solid #e9e9eb;
+      }
+      .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; }
+      .brand-mark { width: 25px; height: 25px; border-radius: 7px; background: #f2be4e; display: grid; place-items: center; color: #4c3910; font-size: 15px; }
+      .mode { display: flex; align-items: center; gap: 6px; padding: 4px; border-radius: 9px; background: #f1f1f3; font-size: 12px; }
+      .mode span { padding: 7px 10px; color: #777780; }
+      .mode .active { border-radius: 6px; background: #fff; color: #25252b; box-shadow: 0 1px 3px #00000018; font-weight: 650; }
+      .toolbar-right { color: #777780; font-size: 12px; }
+      .workspace { position: relative; display: grid; grid-template-columns: 56px minmax(0, 1fr); min-height: 655px; }
+      .tools {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 9px;
+        padding: 16px 0;
+        border-right: 1px solid #e9e9eb;
+        background: #fcfcfc;
+      }
+      .tool { width: 34px; height: 34px; display: grid; place-items: center; border: 0; border-radius: 7px; background: transparent; color: #676770; font-size: 16px; }
+      .tool.active { background: #e9efff; color: #405ca9; }
+      .stage {
+        position: relative;
+        min-width: 0;
+        min-height: 655px;
+        overflow: hidden;
+        background-color: #fff;
+        background-image: radial-gradient(#dedee2 0.85px, transparent 0.85px);
+        background-size: 22px 22px;
+      }
+      .stage-heading { position: absolute; top: 20px; left: 24px; z-index: 1; color: #83838a; font-size: 11px; letter-spacing: .04em; text-transform: uppercase; }
+      .canvas { position: absolute; inset: 68px 22px 24px; }
+      .wires { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+      .wire { fill: none; stroke: #a2a2a9; stroke-width: 2; marker-end: url(#arrow); }
+      .diagram-arrow { cursor: pointer; outline: none; }
+      .diagram-arrow .wire, .diagram-arrow .arrow-hit { pointer-events: none; }
+      .diagram-arrow .arrow-hit { stroke: transparent; stroke-width: 18; pointer-events: stroke; }
+      .diagram-arrow.selected .wire { stroke: #4774df; stroke-width: 4; stroke-dasharray: 7 5; marker-end: url(#selected-arrow); }
+      .diagram-arrow:focus-visible .wire { stroke: #4774df; stroke-width: 4; }
+      .node {
+        position: absolute;
+        width: 148px;
+        min-height: 86px;
+        transform: translate(-50%, -50%);
+        padding: 12px 13px 10px;
+        border: 2px solid #64646c;
+        border-radius: 12px;
+        background: #fff;
+        color: #303038;
+        text-align: left;
+        box-shadow: 2px 3px 0 #29292d19;
+        transition: border-color .15s, box-shadow .15s, transform .15s;
+      }
+      .node:hover { transform: translate(-50%, -52%); }
+      .node.selected { border: 2px dashed #4774df; box-shadow: 0 0 0 4px #4774df20, 2px 3px 0 #29292d19; }
+      .node[data-role="service"] { border-color: #4774df; }
+      .node[data-role="database"] { border-color: #9b64bb; }
+      .node[data-role="external"] { border-color: #b37a30; }
+      .node.selected[data-role] { border-style: dashed; }
+      .node-title { display: block; font-size: 13px; font-weight: 650; }
+      .node-kind { display: block; margin-top: 6px; color: #888891; font-size: 10px; }
+      .node-meta { display: block; margin-top: 8px; color: #6c6c75; font-size: 10px; }
+      .node[data-id="client"] { left: 10%; top: 41%; }
+      .node[data-id="gateway"] { left: 31%; top: 41%; }
+      .node[data-id="worker"] { left: 54%; top: 41%; }
+      .node[data-id="queue"] { left: 54%; top: 72%; }
+      .node[data-id="database"] { left: 80%; top: 72%; }
+      .canvas-note { position: absolute; bottom: 2px; left: 1px; color: #96969e; font-size: 11px; }
+      .inspector-slot { min-width: 0; }
+      .inspector {
+        color: #313139;
+        background: #fff;
+        border: 1px solid #e5e5e8;
+        border-radius: 12px;
+        box-shadow: 0 8px 28px #22222a12;
+      }
+      .inspector-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+      .inspector-title { font-size: 14px; font-weight: 700; }
+      .eyebrow { margin-bottom: 5px; color: #85858d; font-size: 10px; letter-spacing: .06em; text-transform: uppercase; }
+      .selection-count { padding: 5px 8px; border-radius: 99px; background: #edf2ff; color: #4166c5; white-space: nowrap; font-size: 10px; font-weight: 700; }
+      .selected-names { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 12px; }
+      .name-chip { padding: 5px 8px; border: 1px solid #e5e5e9; border-radius: 6px; background: #fafafa; color: #60606a; font-size: 10px; }
+      .control-group { margin-top: 19px; padding-top: 16px; border-top: 1px solid #ededf0; }
+      .control-label { display: flex; align-items: center; justify-content: space-between; margin-bottom: 9px; font-size: 11px; font-weight: 700; }
+      .control-hint { color: #8c8c94; font-size: 10px; font-weight: 400; }
+      .step-current { margin-bottom: 8px; color: #6b6b74; font-size: 11px; }
+      .step-form { display: flex; gap: 7px; }
+      .step-input { width: 82px; height: 34px; padding: 0 9px; border: 1px solid #dcdce1; border-radius: 7px; outline-color: #718de0; }
+      .primary { min-height: 34px; padding: 0 11px; border: 0; border-radius: 7px; background: #486bd1; color: #fff; font-size: 11px; font-weight: 650; }
+      .secondary { min-height: 31px; padding: 0 9px; border: 1px solid #e1e1e5; border-radius: 7px; background: #fff; color: #5d5d66; font-size: 10px; }
+      .text-button { padding: 0; border: 0; background: transparent; color: #74747d; font-size: 10px; text-decoration: underline; text-underline-offset: 2px; }
+      .role-select { width: 100%; height: 36px; padding: 0 9px; border: 1px solid #dcdce1; border-radius: 7px; background: #fff; color: #303038; font-size: 11px; }
+      .muted-note { margin-top: 11px; color: #888891; font-size: 10px; line-height: 1.5; }
+      .reset-row { display: flex; justify-content: space-between; align-items: center; margin-top: 21px; padding-top: 14px; border-top: 1px solid #ededf0; }
+      .reset-row span { color: #888891; font-size: 10px; }
+      .state-preview { margin-top: 13px; padding: 10px; border-radius: 7px; background: #f7f7f9; color: #75757e; font: 10px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; word-break: break-word; }
+      .state-preview summary { cursor: pointer; font: 10px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      .variant-A.workspace { grid-template-columns: 56px minmax(0, 1fr) 302px; }
+      .variant-A .inspector-slot { padding: 16px 15px; border-left: 1px solid #e9e9eb; background: #fcfcfd; }
+      .variant-A .inspector { min-height: 100%; padding: 17px 15px; box-shadow: none; }
+      .variant-B.workspace { grid-template-columns: 56px minmax(0, 1fr); }
+      .variant-B .inspector-slot { position: absolute; z-index: 4; top: 20px; right: 20px; width: 322px; }
+      .variant-B .inspector { padding: 15px; box-shadow: 0 10px 36px #22222a24; }
+      .variant-B .compact-step-row { display: flex; gap: 5px; }
+      .variant-B .step-option { width: 33px; height: 31px; border: 1px solid #e0e0e5; border-radius: 6px; background: #fff; color: #65656d; font-size: 11px; }
+      .variant-B .step-option:hover, .variant-B .step-option.current { border-color: #6d88dc; background: #edf2ff; color: #3e5fb3; }
+      .variant-B .custom-step-row { display: flex; gap: 6px; margin-top: 8px; }
+      .variant-B .role-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+      .variant-B .role-chip { padding: 6px 8px; border: 1px solid #e2e2e6; border-radius: 99px; background: #fff; color: #5c5c65; font-size: 10px; }
+      .variant-B .role-chip.selected { border-color: #8a73bf; background: #f4effa; color: #684595; }
+      .variant-B .reset-row { margin-top: 14px; }
+      .variant-C.workspace { grid-template-columns: 56px minmax(0, 1fr); grid-template-rows: minmax(400px, 1fr) 226px; }
+      .variant-C .tools { grid-row: 1 / 3; }
+      .variant-C .stage { min-height: 430px; }
+      .variant-C .inspector-slot { grid-column: 2; border-top: 1px solid #e1e1e5; background: #fafafd; }
+      .variant-C .inspector { height: 100%; padding: 15px 20px; border: 0; border-radius: 0; box-shadow: none; }
+      .variant-C .inspector-heading { align-items: center; }
+      .variant-C .selected-names { margin-top: 8px; }
+      .variant-C .batch-layout { display: grid; grid-template-columns: minmax(220px, .8fr) minmax(390px, 1.4fr); gap: 24px; align-items: start; }
+      .variant-C .control-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+      .variant-C .control-group { margin-top: 12px; padding-top: 10px; }
+      .variant-C .reset-row { margin-top: 10px; padding-top: 8px; }
+      .variant-C .role-select { max-width: 250px; }
+      .switcher {
+        position: fixed;
+        z-index: 20;
+        bottom: 19px;
+        left: 50%;
+        display: flex;
+        align-items: center;
+        gap: 13px;
+        transform: translateX(-50%);
+        padding: 8px 11px;
+        border: 1px solid #ffffff24;
+        border-radius: 99px;
+        background: #27272c;
+        color: white;
+        box-shadow: 0 6px 24px #0004;
+      }
+      .switcher button { width: 28px; height: 28px; border: 0; border-radius: 50%; background: #414148; color: #fff; font-size: 15px; }
+      .switcher-label { min-width: 174px; text-align: center; font-size: 11px; font-weight: 650; }
+      .switcher-label small { margin-left: 5px; color: #b7b7c0; font-weight: 400; }
+      .hint { position: fixed; right: 18px; bottom: 25px; color: #82828a; font-size: 10px; }
+      .empty { padding: 22px 4px; color: #777780; font-size: 12px; line-height: 1.5; }
+      .variant-B .empty { padding: 14px 2px; }
+      .pill { display: inline-flex; align-items: center; gap: 5px; padding: 4px 7px; border-radius: 99px; background: #f1f1f3; color: #65656d; font-size: 10px; }
+      .code-tag { color: #85858d; font-size: 9px; }
+      @media (max-width: 1000px) {
+        .variant-A.workspace { grid-template-columns: 48px minmax(0, 1fr) 275px; }
+        .variant-A .inspector-slot { padding: 10px; }
+        .variant-C .batch-layout { grid-template-columns: 1fr 1.2fr; gap: 12px; }
+        .hint { display: none; }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="window" id="window">
+      <div class="titlebar">
+        <div class="traffic" aria-hidden="true"><i></i><i></i><i></i></div>
+        <div class="document-name">checkout-flow.excalidraw</div>
+        <div>Saved · Figuro</div>
+      </div>
+      <header class="toolbar">
+        <div class="brand"><span class="brand-mark">F</span><span>Figuro</span></div>
+        <div class="mode"><span>Edit</span><span class="active">Presentation</span><span>Preview</span></div>
+        <div class="toolbar-right">All changes are local to this prototype</div>
+      </header>
+      <section class="workspace" id="workspace">
+        <nav class="tools" aria-label="Drawing tools">
+          <button class="tool active" title="Select">↖</button>
+          <button class="tool" title="Rectangle">□</button>
+          <button class="tool" title="Diamond">◇</button>
+          <button class="tool" title="Arrow">↗</button>
+          <button class="tool" title="Text">T</button>
+        </nav>
+        <section class="stage" aria-label="Excalidraw drawing">
+          <div class="stage-heading">Checkout flow · click shapes or arrows to change selection</div>
+          <div class="canvas">
+            <svg class="wires" viewBox="0 0 1000 520" preserveAspectRatio="none" role="group" aria-label="Diagram arrows">
+              <defs>
+                <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#a2a2a9" /></marker>
+                <marker id="selected-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#4774df" /></marker>
+              </defs>
+              <g class="diagram-arrow" data-id="arrow-client-gateway" role="button" tabindex="0" aria-label="Arrow from Web client to API Gateway" aria-pressed="false">
+                <path class="wire" d="M174 213 L236 213" /><path class="arrow-hit" d="M174 213 L236 213" />
+              </g>
+              <g class="diagram-arrow" data-id="arrow-gateway-worker" role="button" tabindex="0" aria-label="Arrow from API Gateway to Order Worker" aria-pressed="false">
+                <path class="wire" d="M384 213 L466 213" /><path class="arrow-hit" d="M384 213 L466 213" />
+              </g>
+              <g class="diagram-arrow" data-id="arrow-worker-queue" role="button" tabindex="0" aria-label="Arrow from Order Worker to Event Queue" aria-pressed="false">
+                <path class="wire" d="M540 256 L540 331" /><path class="arrow-hit" d="M540 256 L540 331" />
+              </g>
+              <g class="diagram-arrow" data-id="arrow-queue-database" role="button" tabindex="0" aria-label="Arrow from Event Queue to Orders DB" aria-pressed="false">
+                <path class="wire" d="M614 374 L726 374" /><path class="arrow-hit" d="M614 374 L726 374" />
+              </g>
+            </svg>
+            <button class="node" data-id="client" style="left:10%;top:41%" aria-pressed="false"><span class="node-title">Web client</span><span class="node-kind">Browser app</span><span class="node-meta"></span></button>
+            <button class="node" data-id="gateway" style="left:31%;top:41%" aria-pressed="true"><span class="node-title">API Gateway</span><span class="node-kind">Service</span><span class="node-meta"></span></button>
+            <button class="node" data-id="worker" style="left:54%;top:41%" aria-pressed="true"><span class="node-title">Order Worker</span><span class="node-kind">Service</span><span class="node-meta"></span></button>
+            <button class="node" data-id="queue" style="left:54%;top:72%" aria-pressed="false"><span class="node-title">Event Queue</span><span class="node-kind">Message broker</span><span class="node-meta"></span></button>
+            <button class="node" data-id="database" style="left:80%;top:72%" aria-pressed="false"><span class="node-title">Orders DB</span><span class="node-kind">Database</span><span class="node-meta"></span></button>
+            <div class="canvas-note">Nodes and arrows both carry <code>customData.figuro</code> · click to add/remove from selection</div>
+          </div>
+        </section>
+        <aside class="inspector-slot" id="inspector-slot" aria-label="Presentation inspector"></aside>
+      </section>
+    </main>
+    <div class="switcher" aria-label="Prototype variant switcher">
+      <button id="previous" aria-label="Previous variant">←</button>
+      <div class="switcher-label" id="switcher-label"></div>
+      <button id="next" aria-label="Next variant">→</button>
+    </div>
+    <div class="hint">Use ← / → to compare layouts</div>
+    <script>
+      const variants = [
+        { key: "A", name: "Dedicated sidebar" },
+        { key: "B", name: "Selection popover" },
+        { key: "C", name: "Batch-edit dock" },
+      ];
+      const elements = [
+        { id: "client", name: "Web client", kind: "Browser app", type: "shape", role: "external", selected: false, customData: { source: "checkout" } },
+        { id: "gateway", name: "API Gateway", kind: "Service", type: "shape", role: "service", step: 1, selected: true, customData: { figuro: { v: 1, role: "service", step: 1 } } },
+        { id: "worker", name: "Order Worker", kind: "Service", type: "shape", role: "service", step: 2, selected: true, customData: { team: "orders", figuro: { v: 1, role: "service", step: 2 } } },
+        { id: "queue", name: "Event Queue", kind: "Message broker", type: "shape", role: null, step: 2, selected: false, customData: { figuro: { v: 1, step: 2 } } },
+        { id: "database", name: "Orders DB", kind: "Database", type: "shape", role: "database", step: 0, selected: false, customData: { figuro: { v: 1, role: "database", step: 0 } } },
+        { id: "arrow-client-gateway", name: "Web client → API Gateway arrow", kind: "Arrow", type: "arrow", selected: false, customData: { source: "checkout" } },
+        { id: "arrow-gateway-worker", name: "API Gateway → Order Worker arrow", kind: "Arrow", type: "arrow", role: "event", step: 1, selected: false, customData: { figuro: { v: 1, role: "event", step: 1 } } },
+        { id: "arrow-worker-queue", name: "Order Worker → Event Queue arrow", kind: "Arrow", type: "arrow", step: 2, selected: false, customData: { figuro: { v: 1, step: 2 } } },
+        { id: "arrow-queue-database", name: "Event Queue → Orders DB arrow", kind: "Arrow", type: "arrow", selected: false, customData: {} },
+      ];
+      const roleOptions = ["service", "database", "external", "event", "person"];
+      let variant = new URLSearchParams(location.search).get("variant")?.toUpperCase() || "A";
+      if (!variants.some((item) => item.key === variant)) variant = "A";
+
+      const esc = (value) => String(value).replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]);
+      const selected = () => elements.filter((element) => element.selected);
+      const currentValue = (key) => {
+        const values = selected().map((element) => element[key] ?? null);
+        if (!values.length) return { mixed: false, value: null };
+        return { mixed: values.some((value) => value !== values[0]), value: values[0] };
+      };
+      const currentLabel = (key, format) => {
+        const state = currentValue(key);
+        if (!selected().length) return "—";
+        return state.mixed ? "Mixed values" : format(state.value);
+      };
+      const stepValue = (value) => value === null ? "No step · visible initially" : `Step ${value}`;
+      const roleValue = (value) => value === null ? "No role" : value;
+      const selectionSummary = () => {
+        const items = selected();
+        if (!items.length) return '<div class="empty">Select one or more shapes in the drawing to edit their shared presentation metadata.</div>';
+        return `<div class="selected-names">${items.map((item) => `<span class="name-chip">${esc(item.name)}</span>`).join("")}</div>`;
+      };
+      const stateJSON = () => JSON.stringify(elements.filter((item) => item.selected).map(({ name, customData }) => ({ name, customData })), null, 2);
+      const stateDisclosure = () => `<details class="state-preview"><summary>Selected file metadata · read-only preview</summary><pre>${esc(stateJSON())}</pre></details>`;
+      const resetControls = () => `<div class="reset-row"><span>Metadata is saved per element</span><button class="text-button" data-action="clear-all">Clear all Figuro metadata</button></div>`;
+      const stepInput = (placeholder = "Mixed") => `<input class="step-input" data-step-input type="number" min="0" step="1" placeholder="${placeholder}" aria-label="Reveal step" />`;
+      const roleSelect = () => {
+        const state = currentValue("role");
+        const chosen = state.mixed ? "mixed" : (state.value ?? "none");
+        return `<select class="role-select" data-action="set-role" aria-label="Semantic style role">
+          <option value="mixed" ${chosen === "mixed" ? "selected" : ""} disabled>Mixed roles</option>
+          <option value="none" ${chosen === "none" ? "selected" : ""}>No role</option>
+          ${roleOptions.map((role) => `<option value="${role}" ${chosen === role ? "selected" : ""}>${role[0].toUpperCase() + role.slice(1)}</option>`).join("")}
+        </select>`;
+      };
+      const roleChips = () => `<div class="role-chips">${roleOptions.map((role) => `<button class="role-chip ${!currentValue("role").mixed && currentValue("role").value === role ? "selected" : ""}" data-role="${role}">${role}</button>`).join("")}</div>`;
+
+      function renderSidebar() {
+        if (!selected().length) return `<section class="inspector"><div class="inspector-heading"><div><div class="eyebrow">Figuro metadata</div><div class="inspector-title">Presentation</div></div></div>${selectionSummary()}${stateDisclosure()}</section>`;
+        return `<section class="inspector">
+          <div class="inspector-heading"><div><div class="eyebrow">Figuro metadata</div><div class="inspector-title">Presentation</div></div><span class="selection-count">${selected().length} selected</span></div>
+          ${selectionSummary()}
+          <div class="control-group"><div class="control-label"><span>Reveal step</span><span class="control-hint">Click to reveal</span></div>
+            <div class="step-current">Current: ${esc(currentLabel("step", stepValue))}</div>
+            <div class="step-form">${stepInput()}<button class="primary" data-action="apply-step">Set for selection</button></div>
+            <div style="margin-top:9px"><button class="secondary" data-action="clear-step">Remove step · show initially</button></div>
+          </div>
+          <div class="control-group"><div class="control-label"><span>Semantic style role</span><span class="control-hint">Optional</span></div>
+            ${roleSelect()}<div style="margin-top:8px"><button class="text-button" data-action="clear-role">Clear role</button></div>
+            <div class="muted-note">The stylesheet can target this role. Without one, the drawing's original styling remains.</div>
+          </div>
+          ${resetControls()}${stateDisclosure()}
+          <div class="code-tag" style="margin-top:9px">Updates customData.figuro · v1</div>
+        </section>`;
+      }
+      function renderPopover() {
+        if (!selected().length) return `<section class="inspector"><div class="inspector-heading"><div><div class="eyebrow">Selection inspector</div><div class="inspector-title">Nothing selected</div></div></div>${selectionSummary()}</section>`;
+        const state = currentValue("step");
+        return `<section class="inspector">
+          <div class="inspector-heading"><div><div class="eyebrow">Selection inspector</div><div class="inspector-title">${selected().length} elements</div></div><span class="pill">✦ Figuro</span></div>
+          ${selectionSummary()}
+          <div class="control-group"><div class="control-label"><span>Reveal together</span><span class="control-hint">${state.mixed ? "Mixed" : esc(stepValue(state.value))}</span></div>
+            <div class="compact-step-row">${[0,1,2,3].map((step) => `<button class="step-option ${!state.mixed && state.value === step ? "current" : ""}" data-step="${step}">${step}</button>`).join("")}
+              <button class="step-option" data-action="clear-step" title="Remove reveal step">×</button></div>
+            <div class="custom-step-row">${stepInput("Custom step")}<button class="primary" data-action="apply-step">Apply</button></div>
+          </div>
+          <div class="control-group"><div class="control-label"><span>Style role</span><span class="control-hint">${esc(currentLabel("role", roleValue))}</span></div>
+            ${roleChips()}<div style="margin-top:8px"><button class="text-button" data-action="clear-role">Clear role</button></div>
+          </div>
+          ${resetControls()}${stateDisclosure()}
+        </section>`;
+      }
+      function renderDock() {
+        if (!selected().length) return `<section class="inspector"><div class="inspector-heading"><div><div class="eyebrow">Batch editor</div><div class="inspector-title">Select shapes to edit presentation metadata</div></div></div>${selectionSummary()}</section>`;
+        const rows = selected().map((item) => `<span class="name-chip"><strong>${esc(item.name)}</strong><br>${esc(stepValue(item.step ?? null))} · ${esc(roleValue(item.role ?? null))}</span>`).join("");
+        return `<section class="inspector">
+          <div class="batch-layout">
+            <div><div class="inspector-heading"><div><div class="eyebrow">Batch editor</div><div class="inspector-title">${selected().length} selected elements</div></div></div>
+              <div class="selected-names">${rows}</div><div class="muted-note">Each chip shows the current value before you apply a shared change.</div></div>
+            <div><div class="control-columns">
+              <div class="control-group"><div class="control-label"><span>Set reveal step for all</span><span class="control-hint">${esc(currentLabel("step", stepValue))}</span></div>
+                <div class="step-form">${stepInput()}<button class="primary" data-action="apply-step">Apply step</button><button class="secondary" data-action="clear-step">Clear</button></div>
+              </div>
+              <div class="control-group"><div class="control-label"><span>Set shared role</span><span class="control-hint">${esc(currentLabel("role", roleValue))}</span></div>
+                <div class="step-form">${roleSelect()}<button class="secondary" data-action="clear-role">Clear</button></div>
+              </div>
+            </div>
+              ${resetControls()}
+            </div>
+          </div>${stateDisclosure()}
+        </section>`;
+      }
+      function ensureFiguro(item) {
+        item.customData ??= {};
+        item.customData.figuro ??= { v: 1 };
+        item.customData.figuro.v = 1;
+      }
+      function syncFields(item) {
+        const figuro = item.customData?.figuro;
+        if (figuro) {
+          if (item.step == null) delete figuro.step; else figuro.step = item.step;
+          if (item.role == null) delete figuro.role; else figuro.role = item.role;
+          if (Object.keys(figuro).every((key) => key === "v")) delete item.customData.figuro;
+        }
+        if (item.customData && Object.keys(item.customData).length === 0) delete item.customData;
+      }
+      function applyToSelection(change) {
+        selected().forEach((item) => {
+          change(item);
+          syncFields(item);
+        });
+        render();
+      }
+      function render() {
+        document.getElementById("workspace").className = `workspace variant-${variant}`;
+        document.getElementById("switcher-label").innerHTML = `${variant} <small>${variants.find((item) => item.key === variant).name}</small>`;
+        document.getElementById("inspector-slot").innerHTML = variant === "A" ? renderSidebar() : variant === "B" ? renderPopover() : renderDock();
+        elements.forEach((item) => {
+          if (item.type === "arrow") {
+            const arrow = document.querySelector(`.diagram-arrow[data-id="${item.id}"]`);
+            arrow.classList.toggle("selected", item.selected);
+            arrow.setAttribute("aria-pressed", String(item.selected));
+            return;
+          }
+          const node = document.querySelector(`[data-id="${item.id}"]`);
+          node.classList.toggle("selected", item.selected);
+          node.setAttribute("aria-pressed", String(item.selected));
+          if (item.role) node.dataset.role = item.role; else delete node.dataset.role;
+          const stepText = item.step == null ? "Initially visible" : `Step ${item.step}`;
+          node.querySelector(".node-meta").textContent = `${stepText}${item.role ? ` · ${item.role}` : ""}`;
+        });
+        history.replaceState(null, "", `${location.pathname}?variant=${variant}`);
+      }
+      function setVariant(next) {
+        const index = variants.findIndex((item) => item.key === variant);
+        variant = variants[(index + next + variants.length) % variants.length].key;
+        render();
+      }
+      document.addEventListener("click", (event) => {
+        const arrow = event.target.closest(".diagram-arrow");
+        if (arrow) {
+          const item = elements.find((element) => element.id === arrow.dataset.id);
+          item.selected = !item.selected;
+          render();
+          return;
+        }
+        const node = event.target.closest(".node");
+        if (node) {
+          const item = elements.find((element) => element.id === node.dataset.id);
+          item.selected = !item.selected;
+          render();
+          return;
+        }
+        const stepButton = event.target.closest("[data-step]");
+        if (stepButton) {
+          const value = Number(stepButton.dataset.step);
+          applyToSelection((item) => { ensureFiguro(item); item.step = value; });
+          return;
+        }
+        const roleButton = event.target.closest("[data-role]");
+        if (roleButton && roleButton.classList.contains("role-chip")) {
+          const value = roleButton.dataset.role;
+          applyToSelection((item) => { ensureFiguro(item); item.role = value; });
+          return;
+        }
+        const action = event.target.closest("[data-action]")?.dataset.action;
+        if (action === "apply-step") {
+          const input = document.querySelector("[data-step-input]");
+          if (!input || input.value === "" || Number(input.value) < 0) return;
+          const value = Math.floor(Number(input.value));
+          applyToSelection((item) => { ensureFiguro(item); item.step = value; });
+        } else if (action === "clear-step") {
+          applyToSelection((item) => { item.step = null; });
+        } else if (action === "clear-role") {
+          applyToSelection((item) => { item.role = null; });
+        } else if (action === "clear-all") {
+          applyToSelection((item) => { item.step = null; item.role = null; delete item.customData?.figuro; });
+        }
+      });
+      document.addEventListener("change", (event) => {
+        if (event.target.matches('[data-action="set-role"]')) {
+          const value = event.target.value;
+          if (value === "mixed") return;
+          applyToSelection((item) => {
+            if (value === "none") item.role = null;
+            else { ensureFiguro(item); item.role = value; }
+          });
+        }
+      });
+      document.getElementById("previous").addEventListener("click", () => setVariant(-1));
+      document.getElementById("next").addEventListener("click", () => setVariant(1));
+      document.addEventListener("keydown", (event) => {
+        const arrow = event.target.closest?.(".diagram-arrow");
+        if (arrow && (event.key === "Enter" || event.key === " ")) {
+          event.preventDefault();
+          arrow.click();
+          return;
+        }
+        if (["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement.tagName)) return;
+        if (event.key === "ArrowLeft") setVariant(-1);
+        if (event.key === "ArrowRight") setVariant(1);
+      });
+      render();
+    </script>
+  </body>
+</html>

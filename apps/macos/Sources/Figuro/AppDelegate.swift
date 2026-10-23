@@ -27,6 +27,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         MainMenu.install(into: NSApplication.shared)
     }
 
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        DefaultApplication.requestOnFirstLaunch()
+
+        // Publish the compiled icon explicitly for the running Dock tile.
+        let bundle = Bundle.main
+        guard let iconFile = bundle.object(forInfoDictionaryKey: "CFBundleIconFile") as? String,
+              let iconURL = bundle.url(
+                  forResource: (iconFile as NSString).deletingPathExtension, withExtension: "icns"),
+              let icon = NSImage(contentsOf: iconURL) else { return }
+        NSApplication.shared.applicationIconImage = icon
+    }
+
+    @objc func makeDefaultExcalidrawApplication(_ sender: Any?) {
+        DefaultApplication.request()
+    }
+
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         false
     }

@@ -32,6 +32,11 @@ enum MainMenu {
                 keyEquivalent: "")
             menu.addItem(.separator())
             menu.addItem(
+                withTitle: "Make Default for .excalidraw…",
+                action: #selector(AppDelegate.makeDefaultExcalidrawApplication(_:)),
+                keyEquivalent: "")
+            menu.addItem(.separator())
+            menu.addItem(
                 withTitle: "Hide Figuro",
                 action: #selector(NSApplication.hide(_:)),
                 keyEquivalent: "h")

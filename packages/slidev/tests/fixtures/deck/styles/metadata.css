@@ -1,0 +1,11 @@
+svg text {
+  fill: #2255aa !important;
+}
+
+[data-figuro-role="note"] text {
+  fill: #663399 !important;
+}
+
+[data-figuro-role="service"] [fill]:not([fill="none"]) {
+  fill: #dd8800;
+}

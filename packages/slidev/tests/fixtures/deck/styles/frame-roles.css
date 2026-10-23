@@ -1,0 +1,7 @@
+[data-figuro-role="frame"] {
+  opacity: 0;
+}
+
+[data-figuro-role="child"] [fill]:not([fill="none"]) {
+  fill: #ff00ff;
+}

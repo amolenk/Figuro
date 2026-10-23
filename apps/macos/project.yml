@@ -22,6 +22,10 @@ targets:
     platform: macOS
     sources:
       - path: Sources
+      # Treat the Icon Composer bundle as one file so Xcode compiles it.
+      - path: Resources/figuro.icon
+        type: file
+        buildPhase: resources
       # Folder reference: the built web assets keep their directory structure
       # inside the bundle so relative URLs resolve.
       - path: Resources/EditorHost
@@ -34,6 +38,8 @@ targets:
         CFBundleName: Figuro
         CFBundleDisplayName: Figuro
         CFBundlePackageType: APPL
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         NSHumanReadableCopyright: ""
         NSPrincipalClass: NSApplication
         LSMinimumSystemVersion: "14.0"
@@ -56,9 +62,38 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: dev.amolenk.Figuro
+        ASSETCATALOG_COMPILER_APPICON_NAME: figuro
         INFOPLIST_KEY_NSMainStoryboardFile: ""
         COMBINE_HIDPI_IMAGES: YES
     preBuildScripts:
       - name: Build editor host
         script: "\"$SRCROOT/Scripts/build-editor-host.sh\""
         basedOnDependencyAnalysis: false
+
+  FiguroUITests:
+    type: bundle.ui-testing
+    platform: macOS
+    sources:
+      - path: Tests/FiguroUITests
+      - path: Tests/Fixtures/reveal-step.excalidraw
+        buildPhase: resources
+      - path: Tests/Fixtures/unsupported-version.excalidraw
+        buildPhase: resources
+      - path: Tests/Fixtures/mixed-selection.excalidraw
+        buildPhase: resources
+    dependencies:
+      - target: Figuro
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.amolenk.FiguroUITests
+        GENERATE_INFOPLIST_FILE: YES
+
+schemes:
+  Figuro:
+    build:
+      targets:
+        Figuro: all
+        FiguroUITests: [test]
+    test:
+      targets:
+        - FiguroUITests

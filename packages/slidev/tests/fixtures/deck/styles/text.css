@@ -1,0 +1,17 @@
+@namespace s url(http://www.w3.org/2000/svg);
+
+/* Override only text fill; leave shape strokes, fills, and background alone. */
+s|svg s|text {
+  fill: #cc3300;
+}
+
+/* Specificity beats source order, and equal specificity uses the later rule. */
+s|svg s|text[fill] {
+  fill: #2255aa;
+}
+s|svg s|text {
+  fill: #ff0000;
+}
+s|svg s|text[fill] {
+  fill: #663399;
+}
